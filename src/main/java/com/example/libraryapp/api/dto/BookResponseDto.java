@@ -7,6 +7,7 @@ public class BookResponseDto {
     private Integer publicationYear;
 
     public BookResponseDto() {
+        // Пустой конструктор нужен для создания объектов Jackson библиотекой
     }
 
     public Long getId() {
