@@ -1,2 +1,4 @@
 # ElectronicBookCatalog
 Electronic Book Catalog — это учебное Spring Boot приложение, представляющее собой REST API для управления каталогом книг.  Финальной целью является создание полноценного backend-сервиса с подключением к базе данных, реализующего операции просмотра, поиска, сортировки и управления каталогом книг.
+
+https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog
