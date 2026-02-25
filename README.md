@@ -1,5 +1,4 @@
 # Электронный каталог книг
-https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog
 ## REST API проект на Java, фреймворк Spring, Maven.
 
 1. Создать Spring Boot приложение.
