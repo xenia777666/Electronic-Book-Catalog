@@ -26,7 +26,9 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findByPublicationYear(Integer year);
 
     // Поиск по имени автора
-    @Query("SELECT DISTINCT b FROM Book b JOIN b.authors a WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :authorName, '%'))")
+    @Query("SELECT DISTINCT b FROM Book b " +
+            "JOIN b.authors a " +
+            "WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :authorName, '%'))")
     List<Book> findByAuthorName(@Param("authorName") String authorName);
 
     // Поиск по названию жанра

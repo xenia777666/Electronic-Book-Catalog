@@ -1,6 +1,7 @@
 package com.example.libraryapp.api.mapper;
 
-import com.example.libraryapp.api.dto.*;
+import com.example.libraryapp.api.dto.BookDto;
+import com.example.libraryapp.api.dto.BookResponseDto;
 import com.example.libraryapp.domain.Book;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

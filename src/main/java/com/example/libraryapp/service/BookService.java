@@ -23,7 +23,7 @@ import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+
 
 @Slf4j
 @Service
@@ -45,7 +45,9 @@ public class BookService {
 
         // Устанавливаем издателя
         Publisher publisher = publisherRepository.findById(bookDto.getPublisherId())
-                .orElseThrow(() -> new EntityNotFoundException("Publisher not found with id: " + bookDto.getPublisherId()));
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Publisher not found with id: " + bookDto.getPublisherId()
+                ));
         book.setPublisher(publisher);
 
         // Устанавливаем авторов
@@ -138,7 +140,7 @@ public class BookService {
         return bookRepository.findByAuthorName(authorName)
                 .stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // Поиск по жанру
@@ -147,7 +149,7 @@ public class BookService {
         return bookRepository.findByGenreName(genreName)
                 .stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // Поиск по цене
@@ -156,7 +158,7 @@ public class BookService {
         return bookRepository.findByPriceBetween(minPrice, maxPrice)
                 .stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // READ with details (решение N+1)
@@ -169,7 +171,7 @@ public class BookService {
         log.debug("Loaded {} books with details", books.size());
         return books.stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // Демонстрация проблемы N+1
@@ -190,7 +192,7 @@ public class BookService {
 
         return books.stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // Метод без @Transactional - демонстрация частичного сохранения
@@ -217,7 +219,7 @@ public class BookService {
         // Имитируем ошибку
         if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
             log.error("Simulating error during save!");
-            throw new RuntimeException("Simulated error during book creation");
+            throw new IllegalStateException("Simulated error during book creation");
         }
 
         Book savedBook = bookRepository.save(book);
@@ -250,7 +252,7 @@ public class BookService {
         // Имитируем ошибку
         if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
             log.error("Simulating error during save - transaction will rollback!");
-            throw new RuntimeException("Simulated error during book creation");
+            throw new IllegalStateException("Simulated error during book creation");
         }
 
         Book savedBook = bookRepository.save(book);
