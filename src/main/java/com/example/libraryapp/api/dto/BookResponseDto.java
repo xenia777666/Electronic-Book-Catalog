@@ -1,13 +1,21 @@
 package com.example.libraryapp.api.dto;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
+import java.util.Set;
 
 @Data
-@NoArgsConstructor
 public class BookResponseDto {
     private Long id;
+    private String isbn;
     private String title;
-    private String author;
+    private String description;
     private Integer publicationYear;
+    private BigDecimal price;
+
+    // Вложенные DTO
+    private PublisherDto publisher;
+    private Set<AuthorDto> authors;
+    private Set<GenreDto> genres;
+    private Set<ReviewDto> reviews;
 }

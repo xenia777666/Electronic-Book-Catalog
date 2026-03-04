@@ -1,37 +1,58 @@
 package com.example.libraryapp.repository;
 
 import com.example.libraryapp.domain.Book;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import jakarta.annotation.PostConstruct;
-import java.util.ArrayList;
+
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public class BookRepository {
+public interface BookRepository extends JpaRepository<Book, Long> {
 
-    private final List<Book> books = new ArrayList<>();
+    // Поиск по ISBN
+    Optional<Book> findByIsbn(String isbn);
 
-    @PostConstruct
-    public void init() {
-        books.add(new Book(1L, "978-3-16-148410-0", "Война и мир", "Лев Толстой", 1869, "Поэма"));
-        books.add(new Book(2L, "978-0-14-044913-6", "Преступление и наказание", "Фёдор Достоевский", 1866, "Роман"));
-        books.add(new Book(3L, "978-5-699-18031-2", "Мастер и Маргарита", "Михаил Булгаков", 1967, "Проза"));
-    }
+    // Поиск по названию (частичное совпадение, без учета регистра)
+    List<Book> findByTitleContainingIgnoreCase(String title);
 
-    public List<Book> findAll() {
-        return new ArrayList<>(books);
-    }
+    // Поиск по году публикации
+    List<Book> findByPublicationYear(Integer year);
 
-    public Optional<Book> findById(Long id) {
-        return books.stream()
-                .filter(book -> book.getId().equals(id))
-                .findFirst();
-    }
+    // Поиск по имени автора
+    @Query("SELECT DISTINCT b FROM Book b JOIN b.authors a WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :authorName, '%'))")
+    List<Book> findByAuthorName(@Param("authorName") String authorName);
 
-    public List<Book> findByAuthor(String author) {
-        return books.stream()
-                .filter(book -> book.getAuthor().toLowerCase().contains(author.toLowerCase()))
-                .toList();
-    }
+    // Поиск по названию жанра
+    @Query("SELECT DISTINCT b FROM Book b JOIN b.genres g WHERE LOWER(g.name) = LOWER(:genreName)")
+    List<Book> findByGenreName(@Param("genreName") String genreName);
+
+    // Поиск книг с ценой в диапазоне
+    List<Book> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
+
+    // Пагинация с сортировкой
+    Page<Book> findAllByOrderByTitleAsc(Pageable pageable);
+
+    // Решение N+1 через EntityGraph
+    @EntityGraph(attributePaths = {"authors", "genres", "publisher"})
+    @Query("SELECT DISTINCT b FROM Book b")
+    List<Book> findAllWithDetails();
+
+    // Решение N+1 через JOIN FETCH
+    @Query("SELECT DISTINCT b FROM Book b " +
+            "LEFT JOIN FETCH b.authors " +
+            "LEFT JOIN FETCH b.genres " +
+            "LEFT JOIN FETCH b.publisher")
+    List<Book> findAllWithDetailsJoinFetch();
+
+    // Для конкретной книги с деталями
+    @EntityGraph(attributePaths = {"authors", "genres", "publisher", "reviews"})
+    @Query("SELECT b FROM Book b WHERE b.id = :id")
+    Optional<Book> findByIdWithDetails(@Param("id") Long id);
 }
