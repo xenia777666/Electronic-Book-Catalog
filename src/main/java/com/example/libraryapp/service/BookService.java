@@ -24,7 +24,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -36,40 +35,22 @@ public class BookService {
     private final GenreRepository genreRepository;
     private final BookMapper bookMapper;
 
-    // CREATE
+    // ==================== ПУБЛИЧНЫЕ МЕТОДЫ ====================
+
     @Transactional
     public BookResponseDto createBook(BookDto bookDto) {
         log.info("Creating new book: {}", bookDto.getTitle());
-
         Book book = bookMapper.toEntity(bookDto);
 
-        // Устанавливаем издателя
-        Publisher publisher = publisherRepository.findById(bookDto.getPublisherId())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Publisher not found with id: " + bookDto.getPublisherId()
-                ));
-        book.setPublisher(publisher);
-
-        // Устанавливаем авторов
-        Set<Author> authors = new HashSet<>(authorRepository.findAllById(bookDto.getAuthorIds()));
-        if (authors.size() != bookDto.getAuthorIds().size()) {
-            throw new EntityNotFoundException("Some authors not found");
-        }
-        book.setAuthors(authors);
-
-        // Устанавливаем жанры (если есть)
-        if (bookDto.getGenreIds() != null && !bookDto.getGenreIds().isEmpty()) {
-            Set<Genre> genres = new HashSet<>(genreRepository.findAllById(bookDto.getGenreIds()));
-            book.setGenres(genres);
-        }
+        setBookPublisher(book, bookDto.getPublisherId());
+        setBookAuthors(book, bookDto.getAuthorIds());
+        setBookGenres(book, bookDto.getGenreIds());
 
         Book savedBook = bookRepository.save(book);
         log.info("Book created successfully with id: {}", savedBook.getId());
-
         return bookMapper.toDto(savedBook);
     }
 
-    // READ all with pagination
     public Page<BookResponseDto> getAllBooks(Pageable pageable) {
         log.debug("Getting all books with pagination: page {}, size {}",
                 pageable.getPageNumber(), pageable.getPageSize());
@@ -77,64 +58,36 @@ public class BookService {
                 .map(bookMapper::toDto);
     }
 
-    // READ one
     public BookResponseDto getBookById(Long id) {
         log.debug("Getting book by id: {}", id);
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Book not found with id: " + id));
-        return bookMapper.toDto(book);
+        return bookMapper.toDto(findBookById(id));
     }
 
-    // UPDATE
     @Transactional
     public BookResponseDto updateBook(Long id, BookDto bookDto) {
         log.info("Updating book with id: {}", id);
+        Book book = findBookById(id);
 
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Book not found with id: " + id));
-
-        // Обновляем поля
-        book.setIsbn(bookDto.getIsbn());
-        book.setTitle(bookDto.getTitle());
-        book.setDescription(bookDto.getDescription());
-        book.setPublicationYear(bookDto.getPublicationYear());
-        book.setPrice(bookDto.getPrice());
-
-        // Обновляем издателя
-        Publisher publisher = publisherRepository.findById(bookDto.getPublisherId())
-                .orElseThrow(() -> new EntityNotFoundException("Publisher not found"));
-        book.setPublisher(publisher);
-
-        // Обновляем авторов
-        Set<Author> authors = new HashSet<>(authorRepository.findAllById(bookDto.getAuthorIds()));
-        book.setAuthors(authors);
-
-        // Обновляем жанры
-        if (bookDto.getGenreIds() != null) {
-            Set<Genre> genres = new HashSet<>(genreRepository.findAllById(bookDto.getGenreIds()));
-            book.setGenres(genres);
-        }
+        updateBookFields(book, bookDto);
+        setBookPublisher(book, bookDto.getPublisherId());
+        setBookAuthors(book, bookDto.getAuthorIds());
+        setBookGenres(book, bookDto.getGenreIds());
 
         Book updatedBook = bookRepository.save(book);
         log.info("Book updated successfully");
-
         return bookMapper.toDto(updatedBook);
     }
 
-    // DELETE
     @Transactional
     public void deleteBook(Long id) {
         log.info("Deleting book with id: {}", id);
-
         if (!bookRepository.existsById(id)) {
             throw new EntityNotFoundException("Book not found with id: " + id);
         }
         bookRepository.deleteById(id);
-
         log.info("Book deleted successfully");
     }
 
-    // Поиск по автору
     public List<BookResponseDto> findBooksByAuthor(String authorName) {
         log.debug("Searching books by author: {}", authorName);
         return bookRepository.findByAuthorName(authorName)
@@ -143,7 +96,6 @@ public class BookService {
                 .toList();
     }
 
-    // Поиск по жанру
     public List<BookResponseDto> findBooksByGenre(String genreName) {
         log.debug("Searching books by genre: {}", genreName);
         return bookRepository.findByGenreName(genreName)
@@ -152,7 +104,6 @@ public class BookService {
                 .toList();
     }
 
-    // Поиск по цене
     public List<BookResponseDto> findBooksByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
         log.debug("Searching books by price range: {} - {}", minPrice, maxPrice);
         return bookRepository.findByPriceBetween(minPrice, maxPrice)
@@ -161,33 +112,23 @@ public class BookService {
                 .toList();
     }
 
-    // READ with details (решение N+1)
     public List<BookResponseDto> getAllBooksWithDetails() {
         log.info("Getting all books with details (authors, genres, publisher)");
-
-        // Используем метод с EntityGraph - 1 запрос вместо N+1
-        List<Book> books = bookRepository.findAllWithDetails();
-
-        log.debug("Loaded {} books with details", books.size());
-        return books.stream()
+        return bookRepository.findAllWithDetails()
+                .stream()
                 .map(bookMapper::toDto)
                 .toList();
     }
 
-    // Демонстрация проблемы N+1
     public List<BookResponseDto> getAllBooksWithNPlus1Problem() {
         log.warn("DEMONSTRATING N+1 PROBLEM");
-
-        // 1 запрос на получение книг
         List<Book> books = bookRepository.findAll();
 
-        // Для каждой книги дополнительные запросы к авторам и жанрам (N запросов)
         for (Book book : books) {
             log.debug("Loading authors for book {}: will cause additional query", book.getId());
-            book.getAuthors().size(); // Триггер для загрузки LAZY коллекции
-
+            book.getAuthors().size();
             log.debug("Loading genres for book {}: will cause additional query", book.getId());
-            book.getGenres().size(); // Еще один запрос
+            book.getGenres().size();
         }
 
         return books.stream()
@@ -195,68 +136,83 @@ public class BookService {
                 .toList();
     }
 
-    // Метод без @Transactional - демонстрация частичного сохранения
     public Book createBookWithoutTransaction(BookDto bookDto) {
         log.warn("DEMONSTRATING PARTIAL SAVE WITHOUT @Transactional");
+        return saveBookWithTempEntities(bookDto);
+    }
 
-        // Сначала создаем временного издателя (сохранится!)
-        Publisher tempPublisher = new Publisher();
-        tempPublisher.setName("TEMP_" + System.currentTimeMillis());
-        tempPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved with id: {}", tempPublisher.getId());
+    @Transactional
+    public Book createBookWithTransaction(BookDto bookDto) {
+        log.info("DEMONSTRATING ATOMIC SAVE WITH @Transactional");
+        return saveBookWithTempEntities(bookDto);
+    }
 
-        // Создаем временного автора (сохранится!)
-        Author tempAuthor = new Author();
-        tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
-        tempAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved with id: {}", tempAuthor.getId());
+    // ==================== ПРИВАТНЫЕ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ====================
 
-        // Создаем книгу
+    private Book findBookById(Long id) {
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Book not found with id: " + id));
+    }
+
+    private void setBookPublisher(Book book, Long publisherId) {
+        Publisher publisher = publisherRepository.findById(publisherId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Publisher not found with id: " + publisherId
+                ));
+        book.setPublisher(publisher);
+    }
+
+    private void setBookAuthors(Book book, Set<Long> authorIds) {
+        Set<Author> authors = new HashSet<>(authorRepository.findAllById(authorIds));
+        if (authors.size() != authorIds.size()) {
+            throw new EntityNotFoundException("Some authors not found for ids: " + authorIds);
+        }
+        book.setAuthors(authors);
+    }
+
+    private void setBookGenres(Book book, Set<Long> genreIds) {
+        if (genreIds != null && !genreIds.isEmpty()) {
+            Set<Genre> genres = new HashSet<>(genreRepository.findAllById(genreIds));
+            if (genres.size() != genreIds.size()) {
+                throw new EntityNotFoundException("Some genres not found for ids: " + genreIds);
+            }
+            book.setGenres(genres);
+        }
+    }
+
+    private void updateBookFields(Book book, BookDto bookDto) {
+        book.setIsbn(bookDto.getIsbn());
+        book.setTitle(bookDto.getTitle());
+        book.setDescription(bookDto.getDescription());
+        book.setPublicationYear(bookDto.getPublicationYear());
+        book.setPrice(bookDto.getPrice());
+    }
+
+    private Book saveBookWithTempEntities(BookDto bookDto) {
+        Publisher tempPublisher = createAndSaveTempPublisher();
+        Author tempAuthor = createAndSaveTempAuthor();
+
         Book book = bookMapper.toEntity(bookDto);
         book.setPublisher(tempPublisher);
         book.getAuthors().add(tempAuthor);
 
-        // Имитируем ошибку
         if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
             log.error("Simulating error during save!");
             throw new IllegalStateException("Simulated error during book creation");
         }
 
-        Book savedBook = bookRepository.save(book);
-        log.info("Book saved successfully");
-        return savedBook;
+        return bookRepository.save(book);
     }
 
-    // Метод С @Transactional - полный откат при ошибке
-    @Transactional
-    public Book createBookWithTransaction(BookDto bookDto) {
-        log.info("DEMONSTRATING ATOMIC SAVE WITH @Transactional");
-
-        // Создаем временного издателя
+    private Publisher createAndSaveTempPublisher() {
         Publisher tempPublisher = new Publisher();
         tempPublisher.setName("TEMP_" + System.currentTimeMillis());
-        tempPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved with id: {}", tempPublisher.getId());
+        return publisherRepository.save(tempPublisher);
+    }
 
-        // Создаем временного автора
+    private Author createAndSaveTempAuthor() {
         Author tempAuthor = new Author();
         tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
-        tempAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved with id: {}", tempAuthor.getId());
-
-        // Создаем книгу
-        Book book = bookMapper.toEntity(bookDto);
-        book.setPublisher(tempPublisher);
-        book.getAuthors().add(tempAuthor);
-
-        // Имитируем ошибку
-        if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
-            log.error("Simulating error during save - transaction will rollback!");
-            throw new IllegalStateException("Simulated error during book creation");
-        }
-
-        Book savedBook = bookRepository.save(book);
-        log.info("Book saved successfully");
-        return savedBook;
+        return authorRepository.save(tempAuthor);
     }
 }
