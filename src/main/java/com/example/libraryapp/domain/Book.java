@@ -15,8 +15,10 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,7 +30,8 @@ import java.util.Set;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"reviews", "authors", "genres"})
+@EqualsAndHashCode(exclude = {"authors", "genres", "reviews", "publisher"})
+@ToString(exclude = {"authors", "genres", "reviews", "publisher"})
 public class Book {
 
     @Id
@@ -70,16 +73,6 @@ public class Book {
     )
     private Set<Genre> genres = new HashSet<>();
 
-    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Review> reviews = new ArrayList<>();
-
-    public void addReview(Review review) {
-        reviews.add(review);
-        review.setBook(this);
-    }
-
-    public void removeReview(Review review) {
-        reviews.remove(review);
-        review.setBook(null);
-    }
 }

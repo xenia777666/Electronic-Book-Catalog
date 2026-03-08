@@ -9,5 +9,4 @@ public class AuthorDto {
     private String name;
     private String biography;
     private LocalDate birthDate;
-    private String nationality;
 }
