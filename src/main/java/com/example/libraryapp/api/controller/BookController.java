@@ -34,7 +34,6 @@ public class BookController {
 
     private final BookService bookService;
 
-    // CREATE
     @PostMapping
     public ResponseEntity<BookResponseDto> createBook(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books - Creating new book: {}", bookDto.getTitle());
@@ -42,7 +41,6 @@ public class BookController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    // READ all with pagination
     @GetMapping
     public ResponseEntity<Page<BookResponseDto>> getAllBooks(
             @PageableDefault(size = 10, sort = "title", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -51,7 +49,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // READ one
     @GetMapping("/{id}")
     public ResponseEntity<BookResponseDto> getBookById(@PathVariable Long id) {
         log.info("GET /api/books/{}", id);
@@ -59,7 +56,6 @@ public class BookController {
         return ResponseEntity.ok(book);
     }
 
-    // UPDATE
     @PutMapping("/{id}")
     public ResponseEntity<BookResponseDto> updateBook(
             @PathVariable Long id,
@@ -69,7 +65,6 @@ public class BookController {
         return ResponseEntity.ok(updated);
     }
 
-    // DELETE
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         log.info("DELETE /api/books/{}", id);
@@ -77,7 +72,6 @@ public class BookController {
         return ResponseEntity.noContent().build();
     }
 
-    // Search by author
     @GetMapping("/search/author")
     public ResponseEntity<List<BookResponseDto>> searchBooksByAuthor(
             @RequestParam String authorName) {
@@ -86,7 +80,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // Search by genre
     @GetMapping("/search/genre")
     public ResponseEntity<List<BookResponseDto>> searchBooksByGenre(
             @RequestParam String genreName) {
@@ -95,7 +88,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // Search by price range
     @GetMapping("/search/price")
     public ResponseEntity<List<BookResponseDto>> searchBooksByPriceRange(
             @RequestParam BigDecimal minPrice,
@@ -105,7 +97,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // Get books with details (решение N+1)
     @GetMapping("/with-details")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithDetails() {
         log.info("GET /api/books/with-details - Loading books with authors, genres and publisher");
@@ -113,7 +104,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // Демонстрация проблемы N+1
     @GetMapping("/with-n-plus-one")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithNPlusOneProblem() {
         log.info("GET /api/books/with-n-plus-one - DEMONSTRATING N+1 PROBLEM");
@@ -121,7 +111,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // Демонстрация частичного сохранения (без @Transactional)
     @PostMapping("/without-transaction")
     public ResponseEntity<Book> createBookWithoutTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/without-transaction - Demonstrating partial save");
@@ -129,7 +118,6 @@ public class BookController {
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
     }
 
-    // Демонстрация атомарного сохранения (с @Transactional)
     @PostMapping("/with-transaction")
     public ResponseEntity<Book> createBookWithTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/with-transaction - Demonstrating atomic save");

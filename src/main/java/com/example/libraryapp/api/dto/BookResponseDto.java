@@ -13,7 +13,6 @@ public class BookResponseDto {
     private Integer publicationYear;
     private BigDecimal price;
 
-    // Вложенные DTO
     private PublisherDto publisher;
     private Set<AuthorDto> authors;
     private Set<GenreDto> genres;
