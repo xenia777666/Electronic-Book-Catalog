@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -44,7 +43,7 @@ public class ReviewService {
         return reviewRepository.findAll()
                 .stream()
                 .map(reviewMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public ReviewDto getReviewById(Long id) {
@@ -60,7 +59,7 @@ public class ReviewService {
         return reviewRepository.findByBookId(bookId)
                 .stream()
                 .map(reviewMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional

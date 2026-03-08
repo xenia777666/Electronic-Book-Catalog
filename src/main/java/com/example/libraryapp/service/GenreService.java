@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,7 +33,7 @@ public class GenreService {
         return genreRepository.findAll()
                 .stream()
                 .map(genreMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public GenreDto getGenreById(Long id) {

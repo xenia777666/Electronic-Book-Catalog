@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,7 +33,7 @@ public class AuthorService {
         return authorRepository.findAll()
                 .stream()
                 .map(authorMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public AuthorDto getAuthorById(Long id) {
@@ -80,6 +79,6 @@ public class AuthorService {
         return authorRepository.searchByName(name)
                 .stream()
                 .map(authorMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 }
