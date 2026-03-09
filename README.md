@@ -35,4 +35,55 @@ Content-Type: application/json
 
 ## ER-диаграмма базы данных
 
-![ER-диаграмма](images/er.bmp)
+```mermaid
+erDiagram
+    PUBLISHER ||--o{ BOOK : publishes
+    BOOK }o--|| PUBLISHER : published-by
+    
+    BOOK }o--o{ AUTHOR : written-by
+    AUTHOR }o--o{ BOOK : writes
+    
+    BOOK }o--o{ GENRE : categorized-as
+    GENRE }o--o{ BOOK : contains
+    
+    BOOK ||--o{ REVIEW : has
+    REVIEW }o--|| BOOK : belongs-to
+
+    PUBLISHER {
+        bigint id PK
+        string name
+        string address
+        string phone
+        string email
+    }
+
+    BOOK {
+        bigint id PK
+        string isbn
+        string title
+        string description
+        int publication_year
+        decimal price
+        bigint publisher_id FK
+    }
+
+    AUTHOR {
+        bigint id PK
+        string name
+        string biography
+        date birth_date
+    }
+
+    GENRE {
+        bigint id PK
+        string name
+        string description
+    }
+
+    REVIEW {
+        bigint id PK
+        string reviewer_name
+        int rating
+        string comment
+        bigint book_id FK
+    }
