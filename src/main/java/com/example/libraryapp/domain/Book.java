@@ -53,6 +53,9 @@ public class Book {
     @Column(precision = 10, scale = 2)
     private BigDecimal price;
 
+    @Column(name = "average_rating")
+    private Double averageRating;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "publisher_id")
     private Publisher publisher;

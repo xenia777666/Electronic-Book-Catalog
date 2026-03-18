@@ -2,8 +2,10 @@ package com.example.libraryapp.api.controller;
 
 import com.example.libraryapp.api.dto.BookDto;
 import com.example.libraryapp.api.dto.BookResponseDto;
+import com.example.libraryapp.api.dto.BookSearchCriteria;
 import com.example.libraryapp.domain.Book;
 import com.example.libraryapp.service.BookService;
+import com.example.libraryapp.service.IndexService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,7 @@ import java.util.List;
 public class BookController {
 
     private final BookService bookService;
+    private final IndexService indexService;
 
     @PostMapping
     public ResponseEntity<BookResponseDto> createBook(@Valid @RequestBody BookDto bookDto) {
@@ -43,10 +46,89 @@ public class BookController {
 
     @GetMapping
     public ResponseEntity<Page<BookResponseDto>> getAllBooks(
-            @PageableDefault(size = 10, sort = "title", direction = Sort.Direction.ASC) Pageable pageable) {
-        log.info("GET /api/books - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
+            @PageableDefault(size = 10, sort = "title",
+                    direction = Sort.Direction.ASC) Pageable pageable) {
+        log.info("GET /api/books - page: {}, size: {}",
+                pageable.getPageNumber(), pageable.getPageSize());
         Page<BookResponseDto> books = bookService.getAllBooks(pageable);
         return ResponseEntity.ok(books);
+    }
+
+    // ============= ЛАБА 3: Сложный поиск с фильтрацией (JPQL) =============
+    @GetMapping("/search/complex")
+    public ResponseEntity<List<BookResponseDto>> searchBooksComplex(
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre,
+            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Double minRating,
+            @PageableDefault(size = 20) Pageable pageable) {
+
+        log.info("GET /api/books/search/complex with filters");
+
+        BookSearchCriteria criteria = new BookSearchCriteria(
+                author, genre, publisher, minPrice, maxPrice, minRating
+        );
+
+        List<BookResponseDto> books = bookService.searchBooks(criteria, pageable);
+        return ResponseEntity.ok(books);
+    }
+
+    // ============= ЛАБА 3: Сложный поиск с пагинацией =============
+    @GetMapping("/search/complex-paginated")
+    public ResponseEntity<Page<BookResponseDto>> searchBooksComplexWithPagination(
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre,
+            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Double minRating,
+            @PageableDefault(size = 10, sort = "title") Pageable pageable) {
+
+        log.info("GET /api/books/search/complex-paginated with filters, page: {}, size: {}",
+                pageable.getPageNumber(), pageable.getPageSize());
+
+        BookSearchCriteria criteria = new BookSearchCriteria(
+                author, genre, publisher, minPrice, maxPrice, minRating
+        );
+
+        Page<BookResponseDto> books = bookService.searchBooksWithPagination(
+                criteria, pageable);
+        return ResponseEntity.ok(books);
+    }
+
+    // ============= ЛАБА 3: Native query =============
+    @GetMapping("/search/native")
+    public ResponseEntity<List<BookResponseDto>> searchBooksNative(
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre,
+            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Double minRating) {
+
+        log.info("GET /api/books/search/native with filters");
+
+        BookSearchCriteria criteria = new BookSearchCriteria(
+                author, genre, publisher, minPrice, maxPrice, minRating
+        );
+
+        List<BookResponseDto> books = bookService.searchBooksNative(criteria);
+        return ResponseEntity.ok(books);
+    }
+
+    // ============= ЛАБА 3: Мониторинг кэша =============
+    @GetMapping("/cache/stats")
+    public ResponseEntity<String> getCacheStats() {
+        return ResponseEntity.ok("Cache size: " + indexService.getCacheSize() + " entries");
+    }
+
+    // ============= ЛАБА 3: Ручная инвалидация кэша =============
+    @PostMapping("/cache/invalidate")
+    public ResponseEntity<String> invalidateCache() {
+        indexService.invalidateCache();
+        return ResponseEntity.ok("Cache invalidated");
     }
 
     @GetMapping("/{id}")
@@ -92,35 +174,39 @@ public class BookController {
     public ResponseEntity<List<BookResponseDto>> searchBooksByPriceRange(
             @RequestParam BigDecimal minPrice,
             @RequestParam BigDecimal maxPrice) {
-        log.info("GET /api/books/search/price?minPrice={}&maxPrice={}", minPrice, maxPrice);
-        List<BookResponseDto> books = bookService.findBooksByPriceRange(minPrice, maxPrice);
+        log.info("GET /api/books/search/price?minPrice={}&maxPrice={}",
+                minPrice, maxPrice);
+        List<BookResponseDto> books = bookService.findBooksByPriceRange(
+                minPrice, maxPrice);
         return ResponseEntity.ok(books);
     }
 
     @GetMapping("/with-details")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithDetails() {
-        log.info("GET /api/books/with-details - Loading books with authors, genres and publisher");
+        log.info("GET /api/books/with-details");
         List<BookResponseDto> books = bookService.getAllBooksWithDetails();
         return ResponseEntity.ok(books);
     }
 
     @GetMapping("/with-n-plus-one")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithNPlusOneProblem() {
-        log.info("GET /api/books/with-n-plus-one - DEMONSTRATING N+1 PROBLEM");
+        log.info("GET /api/books/with-n-plus-one");
         List<BookResponseDto> books = bookService.getAllBooksWithNPlus1Problem();
         return ResponseEntity.ok(books);
     }
 
     @PostMapping("/without-transaction")
-    public ResponseEntity<Book> createBookWithoutTransaction(@Valid @RequestBody BookDto bookDto) {
-        log.info("POST /api/books/without-transaction - Demonstrating partial save");
+    public ResponseEntity<Book> createBookWithoutTransaction(
+            @Valid @RequestBody BookDto bookDto) {
+        log.info("POST /api/books/without-transaction");
         Book book = bookService.createBookWithoutTransaction(bookDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
     }
 
     @PostMapping("/with-transaction")
-    public ResponseEntity<Book> createBookWithTransaction(@Valid @RequestBody BookDto bookDto) {
-        log.info("POST /api/books/with-transaction - Demonstrating atomic save");
+    public ResponseEntity<Book> createBookWithTransaction(
+            @Valid @RequestBody BookDto bookDto) {
+        log.info("POST /api/books/with-transaction");
         Book book = bookService.createBookWithTransaction(bookDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
     }
