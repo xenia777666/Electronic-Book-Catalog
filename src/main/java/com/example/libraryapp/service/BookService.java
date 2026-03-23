@@ -21,11 +21,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+
 
 @Slf4j
 @Service
@@ -39,27 +41,92 @@ public class BookService {
     private final BookMapper bookMapper;
     private final IndexService indexService;
 
-    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ ДАННЫХ =============
+    // ============= ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ CRUD =============
+    private void setBookPublisher(Book book, Long publisherId) {
+        Publisher publisher = publisherRepository.findById(publisherId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Publisher not found with id: " + publisherId));
+        book.setPublisher(publisher);
+    }
+
+    private void setBookAuthors(Book book, Set<Long> authorIds) {
+        Set<Author> authors = new HashSet<>(authorRepository.findAllById(authorIds));
+        if (authors.size() != authorIds.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Some authors not found for ids: " + authorIds);
+        }
+        book.setAuthors(authors);
+    }
+
+    private void setBookGenres(Book book, Set<Long> genreIds) {
+        if (genreIds != null && !genreIds.isEmpty()) {
+            Set<Genre> genres = new HashSet<>(genreRepository.findAllById(genreIds));
+            if (genres.size() != genreIds.size()) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Some genres not found for ids: " + genreIds);
+            }
+            book.setGenres(genres);
+        }
+    }
+
+    private void invalidateCacheAndLog() {
+        indexService.invalidateCache();
+    }
+
+    private Book createBookEntity(BookDto bookDto) {
+        Book book = bookMapper.toEntity(bookDto);
+        setBookPublisher(book, bookDto.getPublisherId());
+        setBookAuthors(book, bookDto.getAuthorIds());
+        setBookGenres(book, bookDto.getGenreIds());
+        return book;
+    }
+
+    private Book createBookWithTempEntities(BookDto bookDto, boolean withTransaction) {
+        Publisher tempPublisher = new Publisher();
+        tempPublisher.setName("TEMP_" + System.currentTimeMillis());
+        tempPublisher = publisherRepository.save(tempPublisher);
+        log.info("Temporary publisher saved: {}", tempPublisher.getId());
+
+        Author tempAuthor = new Author();
+        tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
+        tempAuthor = authorRepository.save(tempAuthor);
+        log.info("Temporary author saved: {}", tempAuthor.getId());
+
+        Book book = bookMapper.toEntity(bookDto);
+        book.setPublisher(tempPublisher);
+        book.getAuthors().add(tempAuthor);
+
+        if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
+            String errorMsg = withTransaction
+                    ? "Simulating error during save - transaction will rollback!"
+                    : "Simulating error during save!";
+            log.error(errorMsg);
+            throw new IllegalStateException(errorMsg);
+        }
+
+        return bookRepository.save(book);
+    }
+
+    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ КЭША =============
     private List<BookResponseDto> executeAndCache(
             BookSearchCriteria criteria,
             Pageable pageable,
             Function<BookSearchCriteria, List<Book>> queryExecutor) {
 
-        // 1. Пытаемся получить из кэша
         List<BookResponseDto> cached = indexService.getFromCache(criteria, pageable);
         if (cached != null) {
             return cached;
         }
 
-        // 2. Если в кэше нет — выполняем запрос
         List<Book> books = queryExecutor.apply(criteria);
         List<BookResponseDto> results = books.stream()
                 .map(bookMapper::toDto)
                 .toList();
 
-        // 3. Сохраняем в кэш
         indexService.putInCache(criteria, pageable, results);
-
         return results;
     }
 
@@ -114,7 +181,8 @@ public class BookService {
         List<BookResponseDto> allResults = searchBooksNative(criteria);
         return paginateResults(pageable, allResults);
     }
-    // ============= УПРОЩЕННЫЕ ПОИСКИ (используют JPQL) =============
+
+    // ============= УПРОЩЕННЫЕ ПОИСКИ =============
     public List<BookResponseDto> findBooksByAuthor(String authorName) {
         log.debug("Searching books by author: {}", authorName);
         BookSearchCriteria criteria = new BookSearchCriteria();
@@ -141,33 +209,8 @@ public class BookService {
     @Transactional
     public BookResponseDto createBook(BookDto bookDto) {
         log.info("Creating new book: {}", bookDto.getTitle());
-        Book book = bookMapper.toEntity(bookDto);
-
-        Publisher publisher = publisherRepository.findById(bookDto.getPublisherId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Publisher not found with id: " + bookDto.getPublisherId()));
-        book.setPublisher(publisher);
-
-        Set<Author> authors = new HashSet<>(authorRepository.findAllById(bookDto.getAuthorIds()));
-        if (authors.size() != bookDto.getAuthorIds().size()) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Some authors not found for ids: " + bookDto.getAuthorIds());
-        }
-        book.setAuthors(authors);
-
-        if (bookDto.getGenreIds() != null && !bookDto.getGenreIds().isEmpty()) {
-            Set<Genre> genres = new HashSet<>(genreRepository.findAllById(bookDto.getGenreIds()));
-            if (genres.size() != bookDto.getGenreIds().size()) {
-                throw new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Some genres not found for ids: " + bookDto.getGenreIds());
-            }
-            book.setGenres(genres);
-        }
-
-        indexService.invalidateCache();
+        Book book = createBookEntity(bookDto);
+        invalidateCacheAndLog();
         Book savedBook = bookRepository.save(book);
         log.info("Book created successfully with id: {}", savedBook.getId());
         return bookMapper.toDto(savedBook);
@@ -201,31 +244,11 @@ public class BookService {
         book.setPublicationYear(bookDto.getPublicationYear());
         book.setPrice(bookDto.getPrice());
 
-        Publisher publisher = publisherRepository.findById(bookDto.getPublisherId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Publisher not found with id: " + bookDto.getPublisherId()));
-        book.setPublisher(publisher);
+        setBookPublisher(book, bookDto.getPublisherId());
+        setBookAuthors(book, bookDto.getAuthorIds());
+        setBookGenres(book, bookDto.getGenreIds());
 
-        Set<Author> authors = new HashSet<>(authorRepository.findAllById(bookDto.getAuthorIds()));
-        if (authors.size() != bookDto.getAuthorIds().size()) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Some authors not found for ids: " + bookDto.getAuthorIds());
-        }
-        book.setAuthors(authors);
-
-        if (bookDto.getGenreIds() != null && !bookDto.getGenreIds().isEmpty()) {
-            Set<Genre> genres = new HashSet<>(genreRepository.findAllById(bookDto.getGenreIds()));
-            if (genres.size() != bookDto.getGenreIds().size()) {
-                throw new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Some genres not found for ids: " + bookDto.getGenreIds());
-            }
-            book.setGenres(genres);
-        }
-
-        indexService.invalidateCache();
+        invalidateCacheAndLog();
         Book updatedBook = bookRepository.save(book);
         log.info("Book updated successfully");
         return bookMapper.toDto(updatedBook);
@@ -240,7 +263,7 @@ public class BookService {
                     "Book not found with id: " + id);
         }
         bookRepository.deleteById(id);
-        indexService.invalidateCache();
+        invalidateCacheAndLog();
         log.info("Book deleted successfully");
     }
 
@@ -269,52 +292,12 @@ public class BookService {
 
     public Book createBookWithoutTransaction(BookDto bookDto) {
         log.warn("DEMONSTRATING PARTIAL SAVE WITHOUT @Transactional");
-
-        Publisher tempPublisher = new Publisher();
-        tempPublisher.setName("TEMP_" + System.currentTimeMillis());
-        tempPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved: {}", tempPublisher.getId());
-
-        Author tempAuthor = new Author();
-        tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
-        tempAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved: {}", tempAuthor.getId());
-
-        Book book = bookMapper.toEntity(bookDto);
-        book.setPublisher(tempPublisher);
-        book.getAuthors().add(tempAuthor);
-
-        if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
-            log.error("Simulating error during save!");
-            throw new IllegalStateException("Simulated error during book creation");
-        }
-
-        return bookRepository.save(book);
+        return createBookWithTempEntities(bookDto, false);
     }
 
     @Transactional
     public Book createBookWithTransaction(BookDto bookDto) {
         log.info("DEMONSTRATING ATOMIC SAVE WITH @Transactional");
-
-        Publisher tempPublisher = new Publisher();
-        tempPublisher.setName("TEMP_" + System.currentTimeMillis());
-        tempPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved: {}", tempPublisher.getId());
-
-        Author tempAuthor = new Author();
-        tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
-        tempAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved: {}", tempAuthor.getId());
-
-        Book book = bookMapper.toEntity(bookDto);
-        book.setPublisher(tempPublisher);
-        book.getAuthors().add(tempAuthor);
-
-        if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
-            log.error("Simulating error during save - transaction will rollback!");
-            throw new IllegalStateException("Simulated error during book creation");
-        }
-
-        return bookRepository.save(book);
+        return createBookWithTempEntities(bookDto, true);
     }
 }
