@@ -16,35 +16,15 @@ import java.util.Optional;
 @Repository
 public interface BookRepository extends JpaRepository<Book, Long> {
 
-    Optional<Book> findByIsbn(String isbn);
-
-    List<Book> findByTitleContainingIgnoreCase(String title);
-
-    List<Book> findByPublicationYear(Integer year);
-
-    @Query("SELECT DISTINCT b FROM Book b "
-            + "JOIN b.authors a "
-            + "WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :authorName, '%'))")
-    List<Book> findByAuthorName(@Param("authorName") String authorName);
-
-    @Query("SELECT DISTINCT b FROM Book b "
-            + "JOIN b.genres g "
-            + "WHERE LOWER(g.name) = LOWER(:genreName)")
-    List<Book> findByGenreName(@Param("genreName") String genreName);
-
-    List<Book> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
-
-    // ============= ЛАБА 3: Сложный JPQL запрос =============
+    // ============= ЛАБА 3: JPQL с CAST =============
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
             + "LEFT JOIN b.publisher p "
             + "WHERE (:authorName IS NULL "
-            + "OR LOWER(a.name) LIKE LOWER(CONCAT('%', :authorName, '%'))) "
-            + "AND (:genreName IS NULL "
-            + "OR LOWER(g.name) = LOWER(:genreName)) "
-            + "AND (:publisherName IS NULL "
-            + "OR LOWER(p.name) = LOWER(:publisherName)) "
+            + "OR CAST(a.name AS string) LIKE CONCAT('%', CAST(:authorName AS string), '%')) "
+            + "AND (:genreName IS NULL OR CAST(g.name AS string) = CAST(:genreName AS string)) "
+            + "AND (:publisherName IS NULL OR CAST(p.name AS string) = CAST(:publisherName AS string)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
             + "AND (:minRating IS NULL OR b.averageRating >= :minRating)")
@@ -57,17 +37,15 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             @Param("minRating") Double minRating
     );
 
-    // ============= ЛАБА 3: С пагинацией =============
+    // ============= ЛАБА 3: JPQL с пагинацией (С CAST) =============
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
             + "LEFT JOIN b.publisher p "
             + "WHERE (:authorName IS NULL "
-            + "OR LOWER(a.name) LIKE LOWER(CONCAT('%', :authorName, '%'))) "
-            + "AND (:genreName IS NULL "
-            + "OR LOWER(g.name) = LOWER(:genreName)) "
-            + "AND (:publisherName IS NULL "
-            + "OR LOWER(p.name) = LOWER(:publisherName)) "
+            + "OR CAST(a.name AS string) LIKE CONCAT('%', CAST(:authorName AS string), '%')) "
+            + "AND (:genreName IS NULL OR CAST(g.name AS string) = CAST(:genreName AS string)) "
+            + "AND (:publisherName IS NULL OR CAST(p.name AS string) = CAST(:publisherName AS string)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
             + "AND (:minRating IS NULL OR b.averageRating >= :minRating)")
@@ -88,12 +66,12 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             + "LEFT JOIN book_genre bg ON b.id = bg.book_id "
             + "LEFT JOIN genres g ON bg.genre_id = g.id "
             + "LEFT JOIN publishers p ON b.publisher_id = p.id "
-            + "WHERE (:authorName IS NULL OR :authorName = '' "
-            + "OR LOWER(a.name) LIKE LOWER(CONCAT('%', :authorName, '%'))) "
-            + "AND (:genreName IS NULL OR :genreName = '' "
-            + "OR LOWER(g.name) = LOWER(:genreName)) "
-            + "AND (:publisherName IS NULL OR :publisherName = '' "
-            + "OR LOWER(p.name) = LOWER(:publisherName)) "
+            + "WHERE (CAST(:authorName AS text) IS NULL OR CAST(:authorName AS text) = '' "
+            + "OR a.name ILIKE CONCAT('%', CAST(:authorName AS text), '%')) "
+            + "AND (CAST(:genreName AS text) IS NULL OR CAST(:genreName AS text) = '' "
+            + "OR g.name ILIKE CAST(:genreName AS text)) "
+            + "AND (CAST(:publisherName AS text) IS NULL OR CAST(:publisherName AS text) = '' "
+            + "OR p.name ILIKE CAST(:publisherName AS text)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
             + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
@@ -105,6 +83,48 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
             @Param("minRating") Double minRating
+    );
+
+    // ============= ЛАБА 3: Native query с пагинацией =============
+    @Query(value = "SELECT DISTINCT b.* FROM books b "
+            + "LEFT JOIN book_author ba ON b.id = ba.book_id "
+            + "LEFT JOIN authors a ON ba.author_id = a.id "
+            + "LEFT JOIN book_genre bg ON b.id = bg.book_id "
+            + "LEFT JOIN genres g ON bg.genre_id = g.id "
+            + "LEFT JOIN publishers p ON b.publisher_id = p.id "
+            + "WHERE (CAST(:authorName AS text) IS NULL OR CAST(:authorName AS text) = '' "
+            + "OR a.name ILIKE CONCAT('%', CAST(:authorName AS text), '%')) "
+            + "AND (CAST(:genreName AS text) IS NULL OR CAST(:genreName AS text) = '' "
+            + "OR g.name ILIKE CAST(:genreName AS text)) "
+            + "AND (CAST(:publisherName AS text) IS NULL OR CAST(:publisherName AS text) = '' "
+            + "OR p.name ILIKE CAST(:publisherName AS text)) "
+            + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
+            + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
+            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
+            countQuery = "SELECT COUNT(DISTINCT b.id) FROM books b "
+                    + "LEFT JOIN book_author ba ON b.id = ba.book_id "
+                    + "LEFT JOIN authors a ON ba.author_id = a.id "
+                    + "LEFT JOIN book_genre bg ON b.id = bg.book_id "
+                    + "LEFT JOIN genres g ON bg.genre_id = g.id "
+                    + "LEFT JOIN publishers p ON b.publisher_id = p.id "
+                    + "WHERE (CAST(:authorName AS text) IS NULL OR CAST(:authorName AS text) = '' "
+                    + "OR a.name ILIKE CONCAT('%', CAST(:authorName AS text), '%')) "
+                    + "AND (CAST(:genreName AS text) IS NULL OR CAST(:genreName AS text) = '' "
+                    + "OR g.name ILIKE CAST(:genreName AS text)) "
+                    + "AND (CAST(:publisherName AS text) IS NULL OR CAST(:publisherName AS text) = '' "
+                    + "OR p.name ILIKE CAST(:publisherName AS text)) "
+                    + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
+                    + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
+                    + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
+            nativeQuery = true)
+    Page<Book> findBooksByComplexCriteriaNativeWithPagination(
+            @Param("authorName") String authorName,
+            @Param("genreName") String genreName,
+            @Param("publisherName") String publisherName,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
+            @Param("minRating") Double minRating,
+            Pageable pageable
     );
 
     @EntityGraph(attributePaths = {"authors", "genres", "publisher"})

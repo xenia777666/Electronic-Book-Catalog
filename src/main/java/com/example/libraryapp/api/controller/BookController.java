@@ -37,6 +37,19 @@ public class BookController {
     private final BookService bookService;
     private final IndexService indexService;
 
+    // ============= КЭШ: статистика =============
+    @GetMapping("/cache/stats")
+    public ResponseEntity<String> getCacheStats() {
+        return ResponseEntity.ok("Cache size: " + indexService.getCacheSize() + " entries");
+    }
+
+    // ============= КЭШ: ручная очистка =============
+    @PostMapping("/cache/invalidate")
+    public ResponseEntity<String> invalidateCache() {
+        indexService.invalidateCache();
+        return ResponseEntity.ok("Cache invalidated");
+    }
+
     @PostMapping
     public ResponseEntity<BookResponseDto> createBook(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books - Creating new book: {}", bookDto.getTitle());
@@ -46,15 +59,12 @@ public class BookController {
 
     @GetMapping
     public ResponseEntity<Page<BookResponseDto>> getAllBooks(
-            @PageableDefault(size = 10, sort = "title",
-                    direction = Sort.Direction.ASC) Pageable pageable) {
-        log.info("GET /api/books - page: {}, size: {}",
-                pageable.getPageNumber(), pageable.getPageSize());
+            @PageableDefault(size = 10, sort = "title", direction = Sort.Direction.ASC) Pageable pageable) {
+        log.info("GET /api/books - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
         Page<BookResponseDto> books = bookService.getAllBooks(pageable);
         return ResponseEntity.ok(books);
     }
 
-    // ============= ЛАБА 3: Сложный поиск с фильтрацией (JPQL) =============
     @GetMapping("/search/complex")
     public ResponseEntity<List<BookResponseDto>> searchBooksComplex(
             @RequestParam(required = false) String author,
@@ -75,7 +85,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // ============= ЛАБА 3: Сложный поиск с пагинацией =============
     @GetMapping("/search/complex-paginated")
     public ResponseEntity<Page<BookResponseDto>> searchBooksComplexWithPagination(
             @RequestParam(required = false) String author,
@@ -93,12 +102,10 @@ public class BookController {
                 author, genre, publisher, minPrice, maxPrice, minRating
         );
 
-        Page<BookResponseDto> books = bookService.searchBooksWithPagination(
-                criteria, pageable);
+        Page<BookResponseDto> books = bookService.searchBooksWithPagination(criteria, pageable);
         return ResponseEntity.ok(books);
     }
 
-    // ============= ЛАБА 3: Native query =============
     @GetMapping("/search/native")
     public ResponseEntity<List<BookResponseDto>> searchBooksNative(
             @RequestParam(required = false) String author,
@@ -118,17 +125,51 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // ============= ЛАБА 3: Мониторинг кэша =============
-    @GetMapping("/cache/stats")
-    public ResponseEntity<String> getCacheStats() {
-        return ResponseEntity.ok("Cache size: " + indexService.getCacheSize() + " entries");
+    // ============= ЛАБА 3: Native query с пагинацией =============
+    @GetMapping("/search/native-paginated")
+    public ResponseEntity<Page<BookResponseDto>> searchBooksNativeWithPagination(
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String genre,
+            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) Double minRating,
+            @PageableDefault(size = 10, sort = "title") Pageable pageable) {
+
+        log.info("GET /api/books/search/native-paginated with filters, page: {}, size: {}",
+                pageable.getPageNumber(), pageable.getPageSize());
+
+        BookSearchCriteria criteria = new BookSearchCriteria(
+                author, genre, publisher, minPrice, maxPrice, minRating
+        );
+
+        Page<BookResponseDto> books = bookService.searchBooksNativeWithPagination(criteria, pageable);
+        return ResponseEntity.ok(books);
     }
 
-    // ============= ЛАБА 3: Ручная инвалидация кэша =============
-    @PostMapping("/cache/invalidate")
-    public ResponseEntity<String> invalidateCache() {
-        indexService.invalidateCache();
-        return ResponseEntity.ok("Cache invalidated");
+    @GetMapping("/search/author")
+    public ResponseEntity<List<BookResponseDto>> searchBooksByAuthor(
+            @RequestParam String authorName) {
+        log.info("GET /api/books/search/author?authorName={}", authorName);
+        List<BookResponseDto> books = bookService.findBooksByAuthor(authorName);
+        return ResponseEntity.ok(books);
+    }
+
+    @GetMapping("/search/genre")
+    public ResponseEntity<List<BookResponseDto>> searchBooksByGenre(
+            @RequestParam String genreName) {
+        log.info("GET /api/books/search/genre?genreName={}", genreName);
+        List<BookResponseDto> books = bookService.findBooksByGenre(genreName);
+        return ResponseEntity.ok(books);
+    }
+
+    @GetMapping("/search/price")
+    public ResponseEntity<List<BookResponseDto>> searchBooksByPriceRange(
+            @RequestParam BigDecimal minPrice,
+            @RequestParam BigDecimal maxPrice) {
+        log.info("GET /api/books/search/price?minPrice={}&maxPrice={}", minPrice, maxPrice);
+        List<BookResponseDto> books = bookService.findBooksByPriceRange(minPrice, maxPrice);
+        return ResponseEntity.ok(books);
     }
 
     @GetMapping("/{id}")
@@ -154,33 +195,6 @@ public class BookController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/search/author")
-    public ResponseEntity<List<BookResponseDto>> searchBooksByAuthor(
-            @RequestParam String authorName) {
-        log.info("GET /api/books/search/author?authorName={}", authorName);
-        List<BookResponseDto> books = bookService.findBooksByAuthor(authorName);
-        return ResponseEntity.ok(books);
-    }
-
-    @GetMapping("/search/genre")
-    public ResponseEntity<List<BookResponseDto>> searchBooksByGenre(
-            @RequestParam String genreName) {
-        log.info("GET /api/books/search/genre?genreName={}", genreName);
-        List<BookResponseDto> books = bookService.findBooksByGenre(genreName);
-        return ResponseEntity.ok(books);
-    }
-
-    @GetMapping("/search/price")
-    public ResponseEntity<List<BookResponseDto>> searchBooksByPriceRange(
-            @RequestParam BigDecimal minPrice,
-            @RequestParam BigDecimal maxPrice) {
-        log.info("GET /api/books/search/price?minPrice={}&maxPrice={}",
-                minPrice, maxPrice);
-        List<BookResponseDto> books = bookService.findBooksByPriceRange(
-                minPrice, maxPrice);
-        return ResponseEntity.ok(books);
-    }
-
     @GetMapping("/with-details")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithDetails() {
         log.info("GET /api/books/with-details");
@@ -196,16 +210,14 @@ public class BookController {
     }
 
     @PostMapping("/without-transaction")
-    public ResponseEntity<Book> createBookWithoutTransaction(
-            @Valid @RequestBody BookDto bookDto) {
+    public ResponseEntity<Book> createBookWithoutTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/without-transaction");
         Book book = bookService.createBookWithoutTransaction(bookDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
     }
 
     @PostMapping("/with-transaction")
-    public ResponseEntity<Book> createBookWithTransaction(
-            @Valid @RequestBody BookDto bookDto) {
+    public ResponseEntity<Book> createBookWithTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/with-transaction");
         Book book = bookService.createBookWithTransaction(bookDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
