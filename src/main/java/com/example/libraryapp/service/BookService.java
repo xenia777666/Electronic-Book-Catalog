@@ -21,13 +21,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -57,7 +55,7 @@ public class BookService {
         List<Book> books = queryExecutor.apply(criteria);
         List<BookResponseDto> results = books.stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
 
         // 3. Сохраняем в кэш
         indexService.putInCache(criteria, pageable, results);
@@ -67,17 +65,13 @@ public class BookService {
 
     // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПАГИНАЦИИ =============
     private Page<BookResponseDto> paginateResults(
-            BookSearchCriteria criteria,
             Pageable pageable,
             List<BookResponseDto> allResults) {
-
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), allResults.size());
-
         if (start >= allResults.size()) {
             return new PageImpl<>(List.of(), pageable, allResults.size());
         }
-
         return new PageImpl<>(allResults.subList(start, end), pageable, allResults.size());
     }
 
@@ -98,7 +92,7 @@ public class BookService {
         log.info("JPQL search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
         List<BookResponseDto> allResults = searchBooks(criteria, pageable);
-        return paginateResults(criteria, pageable, allResults);
+        return paginateResults(pageable, allResults);
     }
 
     // ============= NATIVE ЗАПРОСЫ =============
@@ -118,9 +112,8 @@ public class BookService {
         log.info("Native search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
         List<BookResponseDto> allResults = searchBooksNative(criteria);
-        return paginateResults(criteria, pageable, allResults);
+        return paginateResults(pageable, allResults);
     }
-
     // ============= УПРОЩЕННЫЕ ПОИСКИ (используют JPQL) =============
     public List<BookResponseDto> findBooksByAuthor(String authorName) {
         log.debug("Searching books by author: {}", authorName);
@@ -256,7 +249,7 @@ public class BookService {
         return bookRepository.findAllWithDetails()
                 .stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<BookResponseDto> getAllBooksWithNPlus1Problem() {
@@ -271,7 +264,7 @@ public class BookService {
 
         return books.stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Book createBookWithoutTransaction(BookDto bookDto) {
