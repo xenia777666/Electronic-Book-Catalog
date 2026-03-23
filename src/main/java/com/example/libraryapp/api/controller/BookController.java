@@ -37,13 +37,11 @@ public class BookController {
     private final BookService bookService;
     private final IndexService indexService;
 
-    // ============= КЭШ: статистика =============
     @GetMapping("/cache/stats")
     public ResponseEntity<String> getCacheStats() {
         return ResponseEntity.ok("Cache size: " + indexService.getCacheSize() + " entries");
     }
 
-    // ============= КЭШ: ручная очистка =============
     @PostMapping("/cache/invalidate")
     public ResponseEntity<String> invalidateCache() {
         indexService.invalidateCache();
@@ -125,7 +123,6 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    // ============= ЛАБА 3: Native query с пагинацией =============
     @GetMapping("/search/native-paginated")
     public ResponseEntity<Page<BookResponseDto>> searchBooksNativeWithPagination(
             @RequestParam(required = false) String author,

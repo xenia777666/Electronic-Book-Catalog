@@ -16,7 +16,6 @@ import java.util.Optional;
 @Repository
 public interface BookRepository extends JpaRepository<Book, Long> {
 
-    // ============= ЛАБА 3: JPQL с CAST =============
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
@@ -37,7 +36,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             @Param("minRating") Double minRating
     );
 
-    // ============= ЛАБА 3: JPQL с пагинацией (С CAST) =============
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
@@ -59,7 +57,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             Pageable pageable
     );
 
-    // ============= ЛАБА 3: Native query =============
     @Query(value = "SELECT DISTINCT b.* FROM books b "
             + "LEFT JOIN book_author ba ON b.id = ba.book_id "
             + "LEFT JOIN authors a ON ba.author_id = a.id "
@@ -85,7 +82,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             @Param("minRating") Double minRating
     );
 
-    // ============= ЛАБА 3: Native query с пагинацией =============
     @Query(value = "SELECT DISTINCT b.* FROM books b "
             + "LEFT JOIN book_author ba ON b.id = ba.book_id "
             + "LEFT JOIN authors a ON ba.author_id = a.id "

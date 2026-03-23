@@ -3,35 +3,26 @@
 
 Electronic Book Catalog — это учебное Spring Boot приложение, представляющее собой REST API для управления каталогом книг. Финальной целью является создание полноценного backend-сервиса с подключением к базе данных, реализующего операции просмотра, поиска, сортировки и управления каталогом книг. На данный момент реализована возможность получения полного каталога книг, запросов по параметру и по id.
 
-1. Подключить реляционную БД к проекту.
-2. В модели данных реализовать минимум 5 сущностей:
-- минимум одну связь OneToMany
-- минимум одну связь ManyToMany
-3. Реализовать CRUD операции.
-4. Настроить и обосновать использование CascadeType и FetchType.
-5. Продемонстрировать проблему N+1 и решить её через @EntityGraph или fetch join.
-6. Реализовать метод, сохраняющий несколько связанных сущностей. Продемонстрировать частичное сохранение данных без @Transactional и полное откатывание операции с @Transactional при возникновении ошибки.
-7. Нарисовать ER-диаграмму с указанием PK/FK и связей.
+1. Реализовать сложный GET-запрос с фильтрацией по вложенной сущности с использованием @Query (JPQL).
+2. Реализовать аналогичный запрос через native query.
+3. Добавить пагинацию (Pageable).
+4. Реализовать in-memory индекс на основе HashMap<K, V> для ранее запрошенных данных. Ключ должен формироваться из параметров запроса (составной ключ). Обеспечить корректную работу индекса за счёт правильной реализации equals() и hashCode().
+5. Реализовать инвалидацию индекса при изменении данных.
 [Сонар](https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog)
 
-## Запросы для теста проблемы N+1
+## Сложный GET-запрос с фильтрацией по вложенной сущности с использованием @Query
 
-   GET http://localhost:8080/api/books/with-n-plus-one
-   GET http://localhost:8080/api/books/with-details
+   GET http://localhost:8080/api/books/search/complex-paginated?genre=Классика&page=1&size=2
 
-## Запрос для теста @Transactional
+## Аналогичный запрос через native query
 
-POST http://localhost:8080/api/books/with-transaction
-POST http://localhost:8080/api/books/without-transaction
-Content-Type: application/json
+   GET http://localhost:8080/api/books/search/native-paginated?genre=Классика&page=1&size=2
 
-{
-"isbn": "978-5-699-18031-2",
-"title": "error test without transaction",
-"price": 500.00,
-"publisherId": 1,
-"authorIds": [1]
-}
+## Запросы для инвалидации и статуса кэша
+
+   POST http://localhost:8080/api/books/cache/invalidate
+
+   GET http://localhost:8080/api/books/cache/stats
 
 ## ER-диаграмма базы данных
 

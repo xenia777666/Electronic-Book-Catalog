@@ -18,7 +18,6 @@ public class BookSearchCriteria {
     private BigDecimal maxPrice;
     private Double minRating;
 
-    // Для отладки
     public String getCacheKey() {
         return String.format("%s|%s|%s|%s|%s|%s",
                 nullSafeString(authorName),
@@ -42,7 +41,6 @@ public class BookSearchCriteria {
         return value == null ? "" : value.toString();
     }
 
-    // ============= ПРАВИЛЬНАЯ РЕАЛИЗАЦИЯ equals() =============
     @SuppressWarnings("checkstyle:NeedBraces")
     @Override
     public boolean equals(Object o) {
@@ -61,7 +59,6 @@ public class BookSearchCriteria {
                 && Objects.equals(minRating, that.minRating);
     }
 
-    // ============= ПРАВИЛЬНАЯ РЕАЛИЗАЦИЯ hashCode() =============
     @Override
     public int hashCode() {
         return Objects.hash(

@@ -41,7 +41,6 @@ public class BookService {
     private final BookMapper bookMapper;
     private final IndexService indexService;
 
-    // ============= ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ CRUD =============
     private void setBookPublisher(Book book, Long publisherId) {
         Publisher publisher = publisherRepository.findById(publisherId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -110,7 +109,6 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ КЭША =============
     private List<BookResponseDto> executeAndCache(
             BookSearchCriteria criteria,
             Pageable pageable,
@@ -130,7 +128,6 @@ public class BookService {
         return results;
     }
 
-    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПАГИНАЦИИ =============
     private Page<BookResponseDto> paginateResults(
             Pageable pageable,
             List<BookResponseDto> allResults) {
@@ -142,7 +139,6 @@ public class BookService {
         return new PageImpl<>(allResults.subList(start, end), pageable, allResults.size());
     }
 
-    // ============= JPQL ЗАПРОСЫ =============
     public List<BookResponseDto> searchBooks(BookSearchCriteria criteria, Pageable pageable) {
         log.info("JPQL search: {}", criteria);
         return executeAndCache(criteria, pageable,
@@ -162,7 +158,6 @@ public class BookService {
         return paginateResults(pageable, allResults);
     }
 
-    // ============= NATIVE ЗАПРОСЫ =============
     public List<BookResponseDto> searchBooksNative(BookSearchCriteria criteria) {
         log.info("Native search: {}", criteria);
         return executeAndCache(criteria, Pageable.unpaged(),
@@ -182,7 +177,6 @@ public class BookService {
         return paginateResults(pageable, allResults);
     }
 
-    // ============= УПРОЩЕННЫЕ ПОИСКИ =============
     public List<BookResponseDto> findBooksByAuthor(String authorName) {
         log.debug("Searching books by author: {}", authorName);
         BookSearchCriteria criteria = new BookSearchCriteria();
