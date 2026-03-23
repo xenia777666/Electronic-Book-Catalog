@@ -3,6 +3,7 @@ package com.example.libraryapp.service;
 import com.example.libraryapp.api.dto.BookResponseDto;
 import com.example.libraryapp.api.dto.BookSearchCriteria;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +15,13 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class IndexService {
 
+    // Кэш для List (без пагинации)
     private final ConcurrentHashMap<CacheKey, List<BookResponseDto>> searchIndex = new ConcurrentHashMap<>();
+
+    // Кэш для Page (с пагинацией) - каждая страница отдельно
+    private final ConcurrentHashMap<CacheKey, Page<BookResponseDto>> pageIndex = new ConcurrentHashMap<>();
+
+    // ============= МЕТОДЫ ДЛЯ LIST (без пагинации) =============
 
     public List<BookResponseDto> getFromCache(BookSearchCriteria criteria, Pageable pageable) {
         // Проверяем, что pageable не null и не unpaged
@@ -23,9 +30,9 @@ public class IndexService {
             CacheKey key = new CacheKey(criteria, -1, -1, null);
             List<BookResponseDto> cached = searchIndex.get(key);
             if (cached != null) {
-                log.info("Cache HIT for key: {}", key);
+                log.info("List Cache HIT for key: {}", key);
             } else {
-                log.info("Cache MISS for key: {}", key);
+                log.info("List Cache MISS for key: {}", key);
             }
             return cached;
         }
@@ -34,9 +41,9 @@ public class IndexService {
         List<BookResponseDto> cached = searchIndex.get(key);
 
         if (cached != null) {
-            log.info("Cache HIT for key: {}", key);
+            log.info("List Cache HIT for key: {}", key);
         } else {
-            log.info("Cache MISS for key: {}", key);
+            log.info("List Cache MISS for key: {}", key);
         }
 
         return cached;
@@ -46,23 +53,56 @@ public class IndexService {
         if (pageable == null || pageable.isUnpaged()) {
             CacheKey key = new CacheKey(criteria, -1, -1, null);
             searchIndex.put(key, results);
-            log.info("Cached results for key: {}", key);
+            log.info("Cached List results for key: {}", key);
             return;
         }
 
         CacheKey key = new CacheKey(criteria, pageable);
         searchIndex.put(key, results);
-        log.info("Cached results for key: {}", key);
+        log.info("Cached List results for key: {}", key);
     }
 
+    // ============= МЕТОДЫ ДЛЯ PAGE (с пагинацией) =============
+
+    public Page<BookResponseDto> getPageFromCache(BookSearchCriteria criteria, Pageable pageable) {
+        CacheKey key = new CacheKey(criteria, pageable);
+        Page<BookResponseDto> cached = pageIndex.get(key);
+
+        if (cached != null) {
+            log.info("Page Cache HIT for key: {}", key);
+        } else {
+            log.info("Page Cache MISS for key: {}", key);
+        }
+
+        return cached;
+    }
+
+    public void putPageInCache(BookSearchCriteria criteria, Pageable pageable, Page<BookResponseDto> page) {
+        CacheKey key = new CacheKey(criteria, pageable);
+        pageIndex.put(key, page);
+        log.info("Cached Page results for key: {}", key);
+    }
+
+    // ============= ИНВАЛИДАЦИЯ КЭША =============
+
     public void invalidateCache() {
-        int size = searchIndex.size();
+        int listSize = searchIndex.size();
+        int pageSize = pageIndex.size();
         searchIndex.clear();
-        log.info("Cache invalidated. Cleared {} entries.", size);
+        pageIndex.clear();
+        log.info("Cache invalidated. Cleared {} list entries and {} page entries.", listSize, pageSize);
     }
 
     public int getCacheSize() {
+        return searchIndex.size() + pageIndex.size();
+    }
+
+    public int getListCacheSize() {
         return searchIndex.size();
+    }
+
+    public int getPageCacheSize() {
+        return pageIndex.size();
     }
 
     // ============= ВНУТРЕННИЙ КЛАСС-КЛЮЧ =============

@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -40,6 +39,8 @@ public class BookService {
     private final GenreRepository genreRepository;
     private final BookMapper bookMapper;
     private final IndexService indexService;
+
+    // ============= ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =============
 
     private void setBookPublisher(Book book, Long publisherId) {
         Publisher publisher = publisherRepository.findById(publisherId)
@@ -109,6 +110,8 @@ public class BookService {
         return bookRepository.save(book);
     }
 
+    // ============= МЕТОДЫ КЭШИРОВАНИЯ =============
+
     private List<BookResponseDto> executeAndCache(
             BookSearchCriteria criteria,
             Pageable pageable,
@@ -128,6 +131,36 @@ public class BookService {
         return results;
     }
 
+    private Page<BookResponseDto> executeAndCachePage(
+            BookSearchCriteria criteria,
+            Pageable pageable,
+            Function<BookSearchCriteria, Page<Book>> queryExecutor) {
+
+        // Пытаемся получить страницу из кэша
+        Page<BookResponseDto> cached = indexService.getPageFromCache(criteria, pageable);
+        if (cached != null) {
+            log.info("Page cache HIT for key: {}-{}-{}",
+                    criteria.getCacheKey(),
+                    pageable.getPageNumber(),
+                    pageable.getPageSize());
+            return cached;
+        }
+
+        log.info("Page cache MISS for key: {}-{}-{}",
+                criteria.getCacheKey(),
+                pageable.getPageNumber(),
+                pageable.getPageSize());
+
+        // Если в кэше нет — идем в базу
+        Page<Book> page = queryExecutor.apply(criteria);
+        Page<BookResponseDto> result = page.map(bookMapper::toDto);
+
+        // Сохраняем в кэш
+        indexService.putPageInCache(criteria, pageable, result);
+
+        return result;
+    }
+
     private Page<BookResponseDto> paginateResults(
             Pageable pageable,
             List<BookResponseDto> allResults) {
@@ -138,6 +171,8 @@ public class BookService {
         }
         return new PageImpl<>(allResults.subList(start, end), pageable, allResults.size());
     }
+
+    // ============= JPQL ЗАПРОСЫ =============
 
     public List<BookResponseDto> searchBooks(BookSearchCriteria criteria, Pageable pageable) {
         log.info("JPQL search: {}", criteria);
@@ -154,9 +189,20 @@ public class BookService {
     public Page<BookResponseDto> searchBooksWithPagination(BookSearchCriteria criteria, Pageable pageable) {
         log.info("JPQL search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
-        List<BookResponseDto> allResults = searchBooks(criteria, pageable);
-        return paginateResults(pageable, allResults);
+
+        // Используем executeAndCachePage для кэширования страниц
+        return executeAndCachePage(criteria, pageable,
+                c -> bookRepository.findBooksByComplexCriteriaWithPagination(
+                        c.getAuthorName(),
+                        c.getGenreName(),
+                        c.getPublisherName(),
+                        c.getMinPrice(),
+                        c.getMaxPrice(),
+                        c.getMinRating(),
+                        pageable));
     }
+
+    // ============= NATIVE ЗАПРОСЫ =============
 
     public List<BookResponseDto> searchBooksNative(BookSearchCriteria criteria) {
         log.info("Native search: {}", criteria);
@@ -170,12 +216,24 @@ public class BookService {
                         c.getMinRating()));
     }
 
-    public Page<BookResponseDto> searchBooksNativeWithPagination(BookSearchCriteria criteria, Pageable pageable) {
+    public Page<BookResponseDto> searchBooksNativeWithPagination(
+            BookSearchCriteria criteria, Pageable pageable) {
         log.info("Native search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
-        List<BookResponseDto> allResults = searchBooksNative(criteria);
-        return paginateResults(pageable, allResults);
+
+        // Используем executeAndCachePage для кэширования страниц
+        return executeAndCachePage(criteria, pageable,
+                c -> bookRepository.findBooksByComplexCriteriaNativeWithPagination(
+                        c.getAuthorName(),
+                        c.getGenreName(),
+                        c.getPublisherName(),
+                        c.getMinPrice(),
+                        c.getMaxPrice(),
+                        c.getMinRating(),
+                        pageable));
     }
+
+    // ============= УПРОЩЕННЫЕ ПОИСКИ =============
 
     public List<BookResponseDto> findBooksByAuthor(String authorName) {
         log.debug("Searching books by author: {}", authorName);
@@ -200,6 +258,7 @@ public class BookService {
     }
 
     // ============= CRUD МЕТОДЫ =============
+
     @Transactional
     public BookResponseDto createBook(BookDto bookDto) {
         log.info("Creating new book: {}", bookDto.getTitle());

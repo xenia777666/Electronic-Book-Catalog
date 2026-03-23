@@ -71,7 +71,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             + "OR p.name ILIKE CAST(:publisherName AS text)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
-            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
+            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)"
+            + "ORDER BY b.title ASC",
             nativeQuery = true)
     List<Book> findBooksByComplexCriteriaNative(
             @Param("authorName") String authorName,
@@ -96,7 +97,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             + "OR p.name ILIKE CAST(:publisherName AS text)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
-            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
+            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)"
+            + "ORDER BY b.title ASC",
             countQuery = "SELECT COUNT(DISTINCT b.id) FROM books b "
                     + "LEFT JOIN book_author ba ON b.id = ba.book_id "
                     + "LEFT JOIN authors a ON ba.author_id = a.id "

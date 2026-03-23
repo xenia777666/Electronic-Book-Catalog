@@ -12,11 +12,11 @@ Electronic Book Catalog — это учебное Spring Boot приложени
 
 ## Сложный GET-запрос с фильтрацией по вложенной сущности с использованием @Query
 
-   GET http://localhost:8080/api/books/search/complex-paginated?genre=Классика&page=1&size=2
+   GET http://localhost:8080/api/books/search/complex-paginated?genre=Классика&minPrice=400&maxPrice=1000&page=0&size=3
 
 ## Аналогичный запрос через native query
 
-   GET http://localhost:8080/api/books/search/native-paginated?genre=Классика&page=1&size=2
+   GET http://localhost:8080/api/books/search/native-paginated?genre=Классика&minPrice=400&maxPrice=1000&page=0&size=3
 
 ## Запросы для инвалидации и статуса кэша
 
