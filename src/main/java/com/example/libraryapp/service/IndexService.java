@@ -15,18 +15,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class IndexService {
 
-    // Кэш для List (без пагинации)
     private final ConcurrentHashMap<CacheKey, List<BookResponseDto>> searchIndex = new ConcurrentHashMap<>();
 
-    // Кэш для Page (с пагинацией) - каждая страница отдельно
     private final ConcurrentHashMap<CacheKey, Page<BookResponseDto>> pageIndex = new ConcurrentHashMap<>();
 
-    // ============= МЕТОДЫ ДЛЯ LIST (без пагинации) =============
 
     public List<BookResponseDto> getFromCache(BookSearchCriteria criteria, Pageable pageable) {
-        // Проверяем, что pageable не null и не unpaged
+
         if (pageable == null || pageable.isUnpaged()) {
-            // Для запросов без пагинации используем специальный ключ с pageNumber = -1
+
             CacheKey key = new CacheKey(criteria, -1, -1, null);
             List<BookResponseDto> cached = searchIndex.get(key);
             if (cached != null) {
@@ -62,7 +59,6 @@ public class IndexService {
         log.info("Cached List results for key: {}", key);
     }
 
-    // ============= МЕТОДЫ ДЛЯ PAGE (с пагинацией) =============
 
     public Page<BookResponseDto> getPageFromCache(BookSearchCriteria criteria, Pageable pageable) {
         CacheKey key = new CacheKey(criteria, pageable);
@@ -83,7 +79,6 @@ public class IndexService {
         log.info("Cached Page results for key: {}", key);
     }
 
-    // ============= ИНВАЛИДАЦИЯ КЭША =============
 
     public void invalidateCache() {
         int listSize = searchIndex.size();
@@ -97,15 +92,7 @@ public class IndexService {
         return searchIndex.size() + pageIndex.size();
     }
 
-    public int getListCacheSize() {
-        return searchIndex.size();
-    }
 
-    public int getPageCacheSize() {
-        return pageIndex.size();
-    }
-
-    // ============= ВНУТРЕННИЙ КЛАСС-КЛЮЧ =============
     private static class CacheKey {
         private final BookSearchCriteria criteria;
         private final int pageNumber;
@@ -119,7 +106,6 @@ public class IndexService {
             this.sort = pageable.getSort().toString();
         }
 
-        // Конструктор для запросов без пагинации
         public CacheKey(BookSearchCriteria criteria, int pageNumber, int pageSize, String sort) {
             this.criteria = criteria;
             this.pageNumber = pageNumber;
