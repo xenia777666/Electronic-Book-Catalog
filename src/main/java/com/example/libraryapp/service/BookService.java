@@ -26,7 +26,8 @@ import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -40,119 +41,99 @@ public class BookService {
     private final BookMapper bookMapper;
     private final IndexService indexService;
 
-    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД С КЭШЕМ =============
-    private List<BookResponseDto> getCachedResults(BookSearchCriteria criteria, Pageable pageable) {
-        // Пытаемся получить из кэша
+    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ ДАННЫХ =============
+    private List<BookResponseDto> executeAndCache(
+            BookSearchCriteria criteria,
+            Pageable pageable,
+            Function<BookSearchCriteria, List<Book>> queryExecutor) {
+
+        // 1. Пытаемся получить из кэша
         List<BookResponseDto> cached = indexService.getFromCache(criteria, pageable);
         if (cached != null) {
             return cached;
         }
 
-        // Если в кэше нет — идем в базу
-        List<Book> books = bookRepository.findBooksByComplexCriteria(
-                criteria.getAuthorName(),
-                criteria.getGenreName(),
-                criteria.getPublisherName(),
-                criteria.getMinPrice(),
-                criteria.getMaxPrice(),
-                criteria.getMinRating()
-        );
-
+        // 2. Если в кэше нет — выполняем запрос
+        List<Book> books = queryExecutor.apply(criteria);
         List<BookResponseDto> results = books.stream()
                 .map(bookMapper::toDto)
-                .toList();
+                .collect(Collectors.toList());
 
-        // Сохраняем в кэш
+        // 3. Сохраняем в кэш
         indexService.putInCache(criteria, pageable, results);
 
         return results;
     }
 
-    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ NATIVE =============
-    private List<BookResponseDto> getCachedNativeResults(BookSearchCriteria criteria, Pageable pageable) {
-        // Пытаемся получить из кэша
-        List<BookResponseDto> cached = indexService.getFromCache(criteria, pageable);
-        if (cached != null) {
-            return cached;
+    // ============= УНИВЕРСАЛЬНЫЙ МЕТОД ДЛЯ ПАГИНАЦИИ =============
+    private Page<BookResponseDto> paginateResults(
+            BookSearchCriteria criteria,
+            Pageable pageable,
+            List<BookResponseDto> allResults) {
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), allResults.size());
+
+        if (start >= allResults.size()) {
+            return new PageImpl<>(List.of(), pageable, allResults.size());
         }
 
-        // Если в кэше нет — идем в базу
-        List<Book> books = bookRepository.findBooksByComplexCriteriaNative(
-                criteria.getAuthorName(),
-                criteria.getGenreName(),
-                criteria.getPublisherName(),
-                criteria.getMinPrice(),
-                criteria.getMaxPrice(),
-                criteria.getMinRating()
-        );
-
-        List<BookResponseDto> results = books.stream()
-                .map(bookMapper::toDto)
-                .toList();
-
-        // Сохраняем в кэш
-        indexService.putInCache(criteria, pageable, results);
-
-        return results;
+        return new PageImpl<>(allResults.subList(start, end), pageable, allResults.size());
     }
 
-    // ============= JPQL запросы =============
+    // ============= JPQL ЗАПРОСЫ =============
     public List<BookResponseDto> searchBooks(BookSearchCriteria criteria, Pageable pageable) {
-        log.info("Searching books with criteria: {}", criteria);
-        return getCachedResults(criteria, pageable);
+        log.info("JPQL search: {}", criteria);
+        return executeAndCache(criteria, pageable,
+                c -> bookRepository.findBooksByComplexCriteria(
+                        c.getAuthorName(),
+                        c.getGenreName(),
+                        c.getPublisherName(),
+                        c.getMinPrice(),
+                        c.getMaxPrice(),
+                        c.getMinRating()));
     }
 
     public Page<BookResponseDto> searchBooksWithPagination(BookSearchCriteria criteria, Pageable pageable) {
-        log.info("Searching books with pagination: {}, page: {}, size: {}",
+        log.info("JPQL search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
-
-        List<BookResponseDto> allResults = getCachedResults(criteria, pageable);
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), allResults.size());
-
-        if (start >= allResults.size()) {
-            return new PageImpl<>(List.of(), pageable, allResults.size());
-        }
-
-        return new PageImpl<>(allResults.subList(start, end), pageable, allResults.size());
+        List<BookResponseDto> allResults = searchBooks(criteria, pageable);
+        return paginateResults(criteria, pageable, allResults);
     }
 
-    // ============= Native запросы =============
+    // ============= NATIVE ЗАПРОСЫ =============
     public List<BookResponseDto> searchBooksNative(BookSearchCriteria criteria) {
-        log.info("Searching books with native query, criteria: {}", criteria);
-        return getCachedNativeResults(criteria, Pageable.unpaged());
+        log.info("Native search: {}", criteria);
+        return executeAndCache(criteria, Pageable.unpaged(),
+                c -> bookRepository.findBooksByComplexCriteriaNative(
+                        c.getAuthorName(),
+                        c.getGenreName(),
+                        c.getPublisherName(),
+                        c.getMinPrice(),
+                        c.getMaxPrice(),
+                        c.getMinRating()));
     }
 
     public Page<BookResponseDto> searchBooksNativeWithPagination(BookSearchCriteria criteria, Pageable pageable) {
-        log.info("Searching books with native query and pagination: {}, page: {}, size: {}",
+        log.info("Native search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
-
-        List<BookResponseDto> allResults = getCachedNativeResults(criteria, pageable);
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), allResults.size());
-
-        if (start >= allResults.size()) {
-            return new PageImpl<>(List.of(), pageable, allResults.size());
-        }
-
-        return new PageImpl<>(allResults.subList(start, end), pageable, allResults.size());
+        List<BookResponseDto> allResults = searchBooksNative(criteria);
+        return paginateResults(criteria, pageable, allResults);
     }
 
-    // ============= Упрощенные поиски =============
+    // ============= УПРОЩЕННЫЕ ПОИСКИ (используют JPQL) =============
     public List<BookResponseDto> findBooksByAuthor(String authorName) {
         log.debug("Searching books by author: {}", authorName);
         BookSearchCriteria criteria = new BookSearchCriteria();
         criteria.setAuthorName(authorName);
-        return getCachedResults(criteria, Pageable.ofSize(20));
+        return searchBooks(criteria, Pageable.ofSize(20));
     }
 
     public List<BookResponseDto> findBooksByGenre(String genreName) {
         log.debug("Searching books by genre: {}", genreName);
         BookSearchCriteria criteria = new BookSearchCriteria();
         criteria.setGenreName(genreName);
-        return getCachedResults(criteria, Pageable.ofSize(20));
+        return searchBooks(criteria, Pageable.ofSize(20));
     }
 
     public List<BookResponseDto> findBooksByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
@@ -160,10 +141,10 @@ public class BookService {
         BookSearchCriteria criteria = new BookSearchCriteria();
         criteria.setMinPrice(minPrice);
         criteria.setMaxPrice(maxPrice);
-        return getCachedResults(criteria, Pageable.ofSize(20));
+        return searchBooks(criteria, Pageable.ofSize(20));
     }
 
-    // ============= CRUD методы =============
+    // ============= CRUD МЕТОДЫ =============
     @Transactional
     public BookResponseDto createBook(BookDto bookDto) {
         log.info("Creating new book: {}", bookDto.getTitle());
@@ -172,16 +153,14 @@ public class BookService {
         Publisher publisher = publisherRepository.findById(bookDto.getPublisherId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Publisher not found with id: " + bookDto.getPublisherId()
-                ));
+                        "Publisher not found with id: " + bookDto.getPublisherId()));
         book.setPublisher(publisher);
 
         Set<Author> authors = new HashSet<>(authorRepository.findAllById(bookDto.getAuthorIds()));
         if (authors.size() != bookDto.getAuthorIds().size()) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "Some authors not found for ids: " + bookDto.getAuthorIds()
-            );
+                    "Some authors not found for ids: " + bookDto.getAuthorIds());
         }
         book.setAuthors(authors);
 
@@ -190,24 +169,20 @@ public class BookService {
             if (genres.size() != bookDto.getGenreIds().size()) {
                 throw new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Some genres not found for ids: " + bookDto.getGenreIds()
-                );
+                        "Some genres not found for ids: " + bookDto.getGenreIds());
             }
             book.setGenres(genres);
         }
 
         indexService.invalidateCache();
-
         Book savedBook = bookRepository.save(book);
         log.info("Book created successfully with id: {}", savedBook.getId());
         return bookMapper.toDto(savedBook);
     }
 
     public Page<BookResponseDto> getAllBooks(Pageable pageable) {
-        log.debug("Getting all books with pagination: page {}, size {}",
-                pageable.getPageNumber(), pageable.getPageSize());
-        return bookRepository.findAll(pageable)
-                .map(bookMapper::toDto);
+        log.debug("Getting all books: page {}, size {}", pageable.getPageNumber(), pageable.getPageSize());
+        return bookRepository.findAll(pageable).map(bookMapper::toDto);
     }
 
     public BookResponseDto getBookById(Long id) {
@@ -215,8 +190,7 @@ public class BookService {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Book not found with id: " + id
-                ));
+                        "Book not found with id: " + id));
         return bookMapper.toDto(book);
     }
 
@@ -226,8 +200,7 @@ public class BookService {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Book not found with id: " + id
-                ));
+                        "Book not found with id: " + id));
 
         book.setIsbn(bookDto.getIsbn());
         book.setTitle(bookDto.getTitle());
@@ -238,16 +211,14 @@ public class BookService {
         Publisher publisher = publisherRepository.findById(bookDto.getPublisherId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Publisher not found with id: " + bookDto.getPublisherId()
-                ));
+                        "Publisher not found with id: " + bookDto.getPublisherId()));
         book.setPublisher(publisher);
 
         Set<Author> authors = new HashSet<>(authorRepository.findAllById(bookDto.getAuthorIds()));
         if (authors.size() != bookDto.getAuthorIds().size()) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "Some authors not found for ids: " + bookDto.getAuthorIds()
-            );
+                    "Some authors not found for ids: " + bookDto.getAuthorIds());
         }
         book.setAuthors(authors);
 
@@ -256,14 +227,12 @@ public class BookService {
             if (genres.size() != bookDto.getGenreIds().size()) {
                 throw new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Some genres not found for ids: " + bookDto.getGenreIds()
-                );
+                        "Some genres not found for ids: " + bookDto.getGenreIds());
             }
             book.setGenres(genres);
         }
 
         indexService.invalidateCache();
-
         Book updatedBook = bookRepository.save(book);
         log.info("Book updated successfully");
         return bookMapper.toDto(updatedBook);
@@ -275,13 +244,10 @@ public class BookService {
         if (!bookRepository.existsById(id)) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "Book not found with id: " + id
-            );
+                    "Book not found with id: " + id);
         }
         bookRepository.deleteById(id);
-
         indexService.invalidateCache();
-
         log.info("Book deleted successfully");
     }
 
@@ -290,7 +256,7 @@ public class BookService {
         return bookRepository.findAllWithDetails()
                 .stream()
                 .map(bookMapper::toDto)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     public List<BookResponseDto> getAllBooksWithNPlus1Problem() {
@@ -298,19 +264,14 @@ public class BookService {
         List<Book> books = bookRepository.findAll();
 
         for (Book book : books) {
-            // Демонстрация N+1: каждый вызов size() вызывает отдельный SQL запрос
-            log.debug("Loading authors for book {}: will cause additional query", book.getId());
             int authorsCount = book.getAuthors().size();
-            log.debug("Book {} has {} authors", book.getId(), authorsCount);
-
-            log.debug("Loading genres for book {}: will cause additional query", book.getId());
             int genresCount = book.getGenres().size();
-            log.debug("Book {} has {} genres", book.getId(), genresCount);
+            log.debug("Book {}: {} authors, {} genres", book.getId(), authorsCount, genresCount);
         }
 
         return books.stream()
                 .map(bookMapper::toDto)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     public Book createBookWithoutTransaction(BookDto bookDto) {
@@ -319,12 +280,12 @@ public class BookService {
         Publisher tempPublisher = new Publisher();
         tempPublisher.setName("TEMP_" + System.currentTimeMillis());
         tempPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved with id: {}", tempPublisher.getId());
+        log.info("Temporary publisher saved: {}", tempPublisher.getId());
 
         Author tempAuthor = new Author();
         tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
         tempAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved with id: {}", tempAuthor.getId());
+        log.info("Temporary author saved: {}", tempAuthor.getId());
 
         Book book = bookMapper.toEntity(bookDto);
         book.setPublisher(tempPublisher);
@@ -345,12 +306,12 @@ public class BookService {
         Publisher tempPublisher = new Publisher();
         tempPublisher.setName("TEMP_" + System.currentTimeMillis());
         tempPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved with id: {}", tempPublisher.getId());
+        log.info("Temporary publisher saved: {}", tempPublisher.getId());
 
         Author tempAuthor = new Author();
         tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
         tempAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved with id: {}", tempAuthor.getId());
+        log.info("Temporary author saved: {}", tempAuthor.getId());
 
         Book book = bookMapper.toEntity(bookDto);
         book.setPublisher(tempPublisher);
