@@ -16,7 +16,6 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -134,7 +133,7 @@ public class BookService {
             Pageable pageable,
             Function<BookSearchCriteria, Page<Book>> queryExecutor) {
 
-        // Пытаемся получить страницу из кэша
+
         Page<BookResponseDto> cached = indexService.getPageFromCache(criteria, pageable);
         if (cached != null) {
             log.info("Page cache HIT for key: {}-{}-{}",
@@ -156,18 +155,6 @@ public class BookService {
 
         return result;
     }
-
-    private Page<BookResponseDto> paginateResults(
-            Pageable pageable,
-            List<BookResponseDto> allResults) {
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), allResults.size());
-        if (start >= allResults.size()) {
-            return new PageImpl<>(List.of(), pageable, allResults.size());
-        }
-        return new PageImpl<>(allResults.subList(start, end), pageable, allResults.size());
-    }
-
 
     public List<BookResponseDto> searchBooks(BookSearchCriteria criteria, Pageable pageable) {
         log.info("JPQL search: {}", criteria);
