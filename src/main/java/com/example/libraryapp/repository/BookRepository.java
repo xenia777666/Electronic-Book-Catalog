@@ -16,6 +16,7 @@ import java.util.Optional;
 @Repository
 public interface BookRepository extends JpaRepository<Book, Long> {
 
+    @EntityGraph(attributePaths = {"authors", "genres", "publisher", "reviews"})
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
@@ -36,12 +37,12 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             @Param("minRating") Double minRating
     );
 
+    @EntityGraph(attributePaths = {"authors", "genres", "publisher", "reviews"})
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
             + "LEFT JOIN b.publisher p "
-            + "WHERE (:authorName IS NULL "
-            + "OR CAST(a.name AS string) LIKE CONCAT('%', CAST(:authorName AS string), '%')) "
+            + "WHERE (:authorName IS NULL OR CAST(a.name AS string) LIKE CONCAT('%', CAST(:authorName AS string), '%')) "
             + "AND (:genreName IS NULL OR CAST(g.name AS string) = CAST(:genreName AS string)) "
             + "AND (:publisherName IS NULL OR CAST(p.name AS string) = CAST(:publisherName AS string)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
@@ -71,8 +72,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             + "OR p.name ILIKE CAST(:publisherName AS text)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
-            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)"
-            + "ORDER BY b.title ASC",
+            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
             nativeQuery = true)
     List<Book> findBooksByComplexCriteriaNative(
             @Param("authorName") String authorName,
@@ -97,8 +97,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             + "OR p.name ILIKE CAST(:publisherName AS text)) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
-            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)"
-            + "ORDER BY b.title ASC",
+            + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
             countQuery = "SELECT COUNT(DISTINCT b.id) FROM books b "
                     + "LEFT JOIN book_author ba ON b.id = ba.book_id "
                     + "LEFT JOIN authors a ON ba.author_id = a.id "
