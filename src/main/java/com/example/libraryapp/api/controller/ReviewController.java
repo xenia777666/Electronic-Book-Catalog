@@ -2,6 +2,8 @@ package com.example.libraryapp.api.controller;
 
 import com.example.libraryapp.api.dto.ReviewDto;
 import com.example.libraryapp.service.ReviewService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
+    @Operation(summary = "Создать отзыв")
     @PostMapping
     public ResponseEntity<ReviewDto> createReview(@Valid @RequestBody ReviewDto reviewDto) {
         log.info("POST /api/reviews - Creating review for book id: {}", reviewDto.getBookId());
@@ -33,6 +36,8 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @Operation(summary = "Посмотреть все отзывы")
+    @ApiResponse(responseCode = "200", description = "Отзывы найдены")
     @GetMapping
     public ResponseEntity<List<ReviewDto>> getAllReviews() {
         log.info("GET /api/reviews");
@@ -40,6 +45,8 @@ public class ReviewController {
         return ResponseEntity.ok(reviews);
     }
 
+    @Operation(summary = "Посмотреть отзыв по айди")
+    @ApiResponse(responseCode = "200", description = "Отзыв найден")
     @GetMapping("/{id}")
     public ResponseEntity<ReviewDto> getReviewById(@PathVariable Long id) {
         log.info("GET /api/reviews/{}", id);
@@ -47,6 +54,7 @@ public class ReviewController {
         return ResponseEntity.ok(review);
     }
 
+    @Operation(summary = "Посмотреть отзыв по айди книги")
     @GetMapping("/book/{bookId}")
     public ResponseEntity<List<ReviewDto>> getReviewsByBookId(@PathVariable Long bookId) {
         log.info("GET /api/reviews/book/{}", bookId);
@@ -54,6 +62,7 @@ public class ReviewController {
         return ResponseEntity.ok(reviews);
     }
 
+    @Operation(summary = "Редактировать отзыв по айди")
     @PutMapping("/{id}")
     public ResponseEntity<ReviewDto> updateReview(
             @PathVariable Long id,
@@ -63,6 +72,7 @@ public class ReviewController {
         return ResponseEntity.ok(updated);
     }
 
+    @Operation(summary = "Удалить отзыв по айди")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
         log.info("DELETE /api/reviews/{}", id);

@@ -6,6 +6,8 @@ import com.example.libraryapp.api.dto.BookSearchCriteria;
 import com.example.libraryapp.domain.Book;
 import com.example.libraryapp.service.BookService;
 import com.example.libraryapp.service.IndexService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,17 +39,26 @@ public class BookController {
     private final BookService bookService;
     private final IndexService indexService;
 
+    @Operation(summary = "Посмотреть статус кэша")
+    @ApiResponse(responseCode = "200", description = "Статус кэша отображен")
     @GetMapping("/cache/stats")
     public ResponseEntity<String> getCacheStats() {
         return ResponseEntity.ok("Cache size: " + indexService.getCacheSize() + " entries");
     }
 
+    @Operation(summary = "Очистить кэш")
+    @ApiResponse(responseCode = "201", description = "Кэш очищен")
     @PostMapping("/cache/invalidate")
     public ResponseEntity<String> invalidateCache() {
         indexService.invalidateCache();
         return ResponseEntity.ok("Cache invalidated");
     }
 
+    @Operation(summary = "Создать книгу")
+    @ApiResponse(responseCode = "201", description = "Книга добавлена")
+    @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
+    @ApiResponse(responseCode = "404", description = "Связанные сущности не найдены")
+    @ApiResponse(responseCode = "409", description = "Такая книга уже существует")
     @PostMapping
     public ResponseEntity<BookResponseDto> createBook(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books - Creating new book: {}", bookDto.getTitle());
@@ -55,6 +66,8 @@ public class BookController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @Operation(summary = "Получить все книги")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
     @GetMapping
     public ResponseEntity<Page<BookResponseDto>> getAllBooks(
             @PageableDefault(size = 10, sort = "title", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -63,6 +76,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по критериям")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/search/complex")
     public ResponseEntity<List<BookResponseDto>> searchBooksComplex(
             @RequestParam(required = false) String author,
@@ -83,6 +98,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по критериям с пагинацией")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/search/complex-paginated")
     public ResponseEntity<Page<BookResponseDto>> searchBooksComplexWithPagination(
             @RequestParam(required = false) String author,
@@ -104,6 +121,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по критериям (через нейтив)")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/search/native")
     public ResponseEntity<List<BookResponseDto>> searchBooksNative(
             @RequestParam(required = false) String author,
@@ -123,6 +142,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по критериям (через нейтив) с пагинацией")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/search/native-paginated")
     public ResponseEntity<Page<BookResponseDto>> searchBooksNativeWithPagination(
             @RequestParam(required = false) String author,
@@ -144,6 +165,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по имени автора")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/search/author")
     public ResponseEntity<List<BookResponseDto>> searchBooksByAuthor(
             @RequestParam String authorName) {
@@ -152,6 +175,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по жанру")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/search/genre")
     public ResponseEntity<List<BookResponseDto>> searchBooksByGenre(
             @RequestParam String genreName) {
@@ -160,6 +185,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по цене")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/search/price")
     public ResponseEntity<List<BookResponseDto>> searchBooksByPriceRange(
             @RequestParam BigDecimal minPrice,
@@ -169,6 +196,8 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
+    @Operation(summary = "Получить книгу по айди")
+    @ApiResponse(responseCode = "200", description = "Книга найдена")
     @GetMapping("/{id}")
     public ResponseEntity<BookResponseDto> getBookById(@PathVariable Long id) {
         log.info("GET /api/books/{}", id);
@@ -176,6 +205,7 @@ public class BookController {
         return ResponseEntity.ok(book);
     }
 
+    @Operation(summary = "Редактировать книгу по айди")
     @PutMapping("/{id}")
     public ResponseEntity<BookResponseDto> updateBook(
             @PathVariable Long id,
@@ -185,6 +215,7 @@ public class BookController {
         return ResponseEntity.ok(updated);
     }
 
+    @Operation(summary = "Удалить книгу по айди")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         log.info("DELETE /api/books/{}", id);
@@ -192,20 +223,21 @@ public class BookController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Посмотреть все книги детально")
     @GetMapping("/with-details")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithDetails() {
         log.info("GET /api/books/with-details");
         List<BookResponseDto> books = bookService.getAllBooksWithDetails();
         return ResponseEntity.ok(books);
     }
-
+    @Operation(summary = "Демонстрация н+1 проблемы")
     @GetMapping("/with-n-plus-one")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithNPlusOneProblem() {
         log.info("GET /api/books/with-n-plus-one");
         List<BookResponseDto> books = bookService.getAllBooksWithNPlus1Problem();
         return ResponseEntity.ok(books);
     }
-
+    @Operation(summary = "Создание книги без транзакции")
     @PostMapping("/without-transaction")
     public ResponseEntity<Book> createBookWithoutTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/without-transaction");
@@ -213,6 +245,7 @@ public class BookController {
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
     }
 
+    @Operation(summary = "Создание книги с транзакцией")
     @PostMapping("/with-transaction")
     public ResponseEntity<Book> createBookWithTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/with-transaction");

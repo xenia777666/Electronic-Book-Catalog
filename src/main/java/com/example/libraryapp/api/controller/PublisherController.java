@@ -2,6 +2,8 @@ package com.example.libraryapp.api.controller;
 
 import com.example.libraryapp.api.dto.PublisherDto;
 import com.example.libraryapp.service.PublisherService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ public class PublisherController {
 
     private final PublisherService publisherService;
 
+    @Operation(summary = "Создать издателя")
     @PostMapping
     public ResponseEntity<PublisherDto> createPublisher(@Valid @RequestBody PublisherDto publisherDto) {
         log.info("POST /api/publishers - Creating publisher: {}", publisherDto.getName());
@@ -33,6 +36,8 @@ public class PublisherController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @Operation(summary = "Получить всех издателей")
+    @ApiResponse(responseCode = "200", description = "Издатели найдены")
     @GetMapping
     public ResponseEntity<List<PublisherDto>> getAllPublishers() {
         log.info("GET /api/publishers");
@@ -40,6 +45,8 @@ public class PublisherController {
         return ResponseEntity.ok(publishers);
     }
 
+    @Operation(summary = "Получить издателя по айди")
+    @ApiResponse(responseCode = "200", description = "Издатель найден")
     @GetMapping("/{id}")
     public ResponseEntity<PublisherDto> getPublisherById(@PathVariable Long id) {
         log.info("GET /api/publishers/{}", id);
@@ -47,6 +54,7 @@ public class PublisherController {
         return ResponseEntity.ok(publisher);
     }
 
+    @Operation(summary = "Редактировать издателя по айди")
     @PutMapping("/{id}")
     public ResponseEntity<PublisherDto> updatePublisher(
             @PathVariable Long id,
@@ -56,6 +64,7 @@ public class PublisherController {
         return ResponseEntity.ok(updated);
     }
 
+    @Operation(summary = "Удалить издателя по айди")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePublisher(@PathVariable Long id) {
         log.info("DELETE /api/publishers/{}", id);
