@@ -27,7 +27,6 @@ public class AuthorService {
     public AuthorDto createAuthor(AuthorDto authorDto) {
         log.info("Creating author: {}", authorDto.getName());
 
-        // Проверка на дубликат имени
         if (authorRepository.findByName(authorDto.getName()).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -72,7 +71,6 @@ public class AuthorService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Author not found with id: " + id));
 
-        // Проверка на дубликат имени при обновлении (если имя изменилось)
         if (!author.getName().equals(authorDto.getName())
                 && authorRepository.findByName(authorDto.getName()).isPresent()) {
             throw new ResponseStatusException(

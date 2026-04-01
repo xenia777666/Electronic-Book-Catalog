@@ -16,9 +16,8 @@ import java.util.Optional;
 @Repository
 public interface BookRepository extends JpaRepository<Book, Long> {
 
-    // ============= ДОБАВЬ ЭТОТ МЕТОД =============
+
     Optional<Book> findByIsbn(String isbn);
-    // =============================================
 
     @EntityGraph(attributePaths = {"authors", "genres", "publisher", "reviews"})
     @Query("SELECT DISTINCT b FROM Book b "

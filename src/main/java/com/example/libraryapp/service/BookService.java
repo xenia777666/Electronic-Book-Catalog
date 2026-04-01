@@ -188,13 +188,11 @@ public class BookService {
     public List<BookResponseDto> searchBooksNative(BookSearchCriteria criteria) {
         log.info("Native search: {}", criteria);
 
-        // Пытаемся получить из кэша
         List<BookResponseDto> cached = indexService.getFromCache(criteria, Pageable.unpaged());
         if (cached != null) {
             return cached;
         }
 
-        // Выполняем native query, получаем Object[]
         List<Object[]> rows = bookRepository.findBooksByComplexCriteriaNative(
                 criteria.getAuthorName(),
                 criteria.getGenreName(),
@@ -203,13 +201,11 @@ public class BookService {
                 criteria.getMaxPrice(),
                 criteria.getMinRating());
 
-        // Конвертируем Object[] в Book, потом в DTO
         List<BookResponseDto> results = rows.stream()
                 .map(bookMapper::mapToBook)
                 .map(bookMapper::toDto)
                 .toList();
 
-        // Сохраняем в кэш
         indexService.putInCache(criteria, Pageable.unpaged(), results);
 
         return results;
@@ -220,7 +216,6 @@ public class BookService {
         log.info("Native search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
 
-        // Получаем страницу Object[] из репозитория
         Page<Object[]> page = bookRepository.findBooksByComplexCriteriaNativeWithPagination(
                 criteria.getAuthorName(),
                 criteria.getGenreName(),
@@ -230,13 +225,11 @@ public class BookService {
                 criteria.getMinRating(),
                 pageable);
 
-        // Конвертируем каждый Object[] в BookResponseDto
         List<BookResponseDto> content = page.getContent().stream()
                 .map(bookMapper::mapToBook)
                 .map(bookMapper::toDto)
                 .toList();
 
-        // Создаем новую страницу с DTO
         return new PageImpl<>(content, pageable, page.getTotalElements());
     }
 
@@ -312,7 +305,6 @@ public class BookService {
                         HttpStatus.NOT_FOUND,
                         "Book not found with id: " + id));
 
-        // Проверка на дубликат ISBN при обновлении (если ISBN изменился)
         if (!book.getIsbn().equals(bookDto.getIsbn())
                 && bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
             throw new ResponseStatusException(

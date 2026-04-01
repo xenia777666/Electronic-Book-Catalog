@@ -80,23 +80,7 @@ public class BookMapper {
         return dto;
     }
 
-    /**
-     * Конвертация Object[] из native query в Book
-     * Порядок полей в SELECT:
-     * 0: b.id
-     * 1: b.isbn
-     * 2: b.title
-     * 3: b.description
-     * 4: b.publication_year
-     * 5: b.price
-     * 6: b.average_rating
-     * 7: a.id (author_id)
-     * 8: a.name (author_name)
-     * 9: g.id (genre_id)
-     * 10: g.name (genre_name)
-     * 11: p.id (publisher_id)
-     * 12: p.name (publisher_name)
-     */
+
     public Book mapToBook(Object[] row) {
         if (row == null || row.length < 13) {
             log.warn("Invalid row data: null or too short");
@@ -108,24 +92,15 @@ public class BookMapper {
         try {
             int idx = 0;
 
-            // id
             book.setId(convertToLong(row[idx++]));
-            // isbn
             book.setIsbn(convertToString(row[idx++]));
-            // title
             book.setTitle(convertToString(row[idx++]));
-            // description
             book.setDescription(convertToString(row[idx++]));
-            // publication_year
             book.setPublicationYear(convertToInteger(row[idx++]));
-            // price
             book.setPrice(convertToBigDecimal(row[idx++]));
-            // average_rating
             book.setAverageRating(convertToDouble(row[idx++]));
 
-            // author_id
             Long authorId = convertToLong(row[idx++]);
-            // author_name
             String authorName = convertToString(row[idx++]);
             if (authorId != null && authorName != null) {
                 Author author = new Author();
@@ -136,9 +111,7 @@ public class BookMapper {
                 book.setAuthors(authors);
             }
 
-            // genre_id
             Long genreId = convertToLong(row[idx++]);
-            // genre_name
             String genreName = convertToString(row[idx++]);
             if (genreId != null && genreName != null) {
                 Genre genre = new Genre();
@@ -149,9 +122,7 @@ public class BookMapper {
                 book.setGenres(genres);
             }
 
-            // publisher_id
             Long publisherId = convertToLong(row[idx++]);
-            // publisher_name
             String publisherName = convertToString(row[idx++]);
             if (publisherId != null && publisherName != null) {
                 Publisher publisher = new Publisher();
@@ -171,7 +142,6 @@ public class BookMapper {
         return book;
     }
 
-    // Вспомогательные методы для безопасного преобразования
     private Long convertToLong(Object value) {
         if (value == null) {
             return null;
