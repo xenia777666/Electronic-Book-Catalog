@@ -219,4 +219,10 @@ public class BookController {
         Book book = bookService.createBookWithTransaction(bookDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
     }
+
+    @GetMapping("/test-500")
+    public ResponseEntity<String> test500() {
+        throw new RuntimeException("This is a test 500 error");
+    }
+
 }

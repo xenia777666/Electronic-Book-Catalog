@@ -15,12 +15,13 @@ import com.example.libraryapp.repository.PublisherRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-
+import org.springframework.data.domain.PageImpl;
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
@@ -186,14 +187,32 @@ public class BookService {
 
     public List<BookResponseDto> searchBooksNative(BookSearchCriteria criteria) {
         log.info("Native search: {}", criteria);
-        return executeAndCache(criteria, Pageable.unpaged(),
-                c -> bookRepository.findBooksByComplexCriteriaNative(
-                        c.getAuthorName(),
-                        c.getGenreName(),
-                        c.getPublisherName(),
-                        c.getMinPrice(),
-                        c.getMaxPrice(),
-                        c.getMinRating()));
+
+        // Пытаемся получить из кэша
+        List<BookResponseDto> cached = indexService.getFromCache(criteria, Pageable.unpaged());
+        if (cached != null) {
+            return cached;
+        }
+
+        // Выполняем native query, получаем Object[]
+        List<Object[]> rows = bookRepository.findBooksByComplexCriteriaNative(
+                criteria.getAuthorName(),
+                criteria.getGenreName(),
+                criteria.getPublisherName(),
+                criteria.getMinPrice(),
+                criteria.getMaxPrice(),
+                criteria.getMinRating());
+
+        // Конвертируем Object[] в Book, потом в DTO
+        List<BookResponseDto> results = rows.stream()
+                .map(bookMapper::mapToBook)
+                .map(bookMapper::toDto)
+                .toList();
+
+        // Сохраняем в кэш
+        indexService.putInCache(criteria, Pageable.unpaged(), results);
+
+        return results;
     }
 
     public Page<BookResponseDto> searchBooksNativeWithPagination(
@@ -201,15 +220,24 @@ public class BookService {
         log.info("Native search with pagination: {}, page: {}, size: {}",
                 criteria, pageable.getPageNumber(), pageable.getPageSize());
 
-        return executeAndCachePage(criteria, pageable,
-                c -> bookRepository.findBooksByComplexCriteriaNativeWithPagination(
-                        c.getAuthorName(),
-                        c.getGenreName(),
-                        c.getPublisherName(),
-                        c.getMinPrice(),
-                        c.getMaxPrice(),
-                        c.getMinRating(),
-                        pageable));
+        // Получаем страницу Object[] из репозитория
+        Page<Object[]> page = bookRepository.findBooksByComplexCriteriaNativeWithPagination(
+                criteria.getAuthorName(),
+                criteria.getGenreName(),
+                criteria.getPublisherName(),
+                criteria.getMinPrice(),
+                criteria.getMaxPrice(),
+                criteria.getMinRating(),
+                pageable);
+
+        // Конвертируем каждый Object[] в BookResponseDto
+        List<BookResponseDto> content = page.getContent().stream()
+                .map(bookMapper::mapToBook)
+                .map(bookMapper::toDto)
+                .toList();
+
+        // Создаем новую страницу с DTO
+        return new PageImpl<>(content, pageable, page.getTotalElements());
     }
 
 
@@ -239,11 +267,27 @@ public class BookService {
     @Transactional
     public BookResponseDto createBook(BookDto bookDto) {
         log.info("Creating new book: {}", bookDto.getTitle());
+
+        // Проверка на дубликат ISBN
+        if (bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Книга с ISBN " + bookDto.getIsbn() + " уже существует");
+        }
+
         Book book = createBookEntity(bookDto);
         invalidateCacheAndLog();
-        Book savedBook = bookRepository.save(book);
-        log.info("Book created successfully with id: {}", savedBook.getId());
-        return bookMapper.toDto(savedBook);
+
+        try {
+            Book savedBook = bookRepository.save(book);
+            log.info("Book created successfully with id: {}", savedBook.getId());
+            return bookMapper.toDto(savedBook);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while creating book: {}", e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Не удалось создать книгу. Возможно, ISBN уже существует.");
+        }
     }
 
     public Page<BookResponseDto> getAllBooks(Pageable pageable) {
@@ -268,6 +312,14 @@ public class BookService {
                         HttpStatus.NOT_FOUND,
                         "Book not found with id: " + id));
 
+        // Проверка на дубликат ISBN при обновлении (если ISBN изменился)
+        if (!book.getIsbn().equals(bookDto.getIsbn())
+                && bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Книга с ISBN " + bookDto.getIsbn() + " уже существует");
+        }
+
         book.setIsbn(bookDto.getIsbn());
         book.setTitle(bookDto.getTitle());
         book.setDescription(bookDto.getDescription());
@@ -279,9 +331,17 @@ public class BookService {
         setBookGenres(book, bookDto.getGenreIds());
 
         invalidateCacheAndLog();
-        Book updatedBook = bookRepository.save(book);
-        log.info("Book updated successfully");
-        return bookMapper.toDto(updatedBook);
+
+        try {
+            Book updatedBook = bookRepository.save(book);
+            log.info("Book updated successfully");
+            return bookMapper.toDto(updatedBook);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while updating book: {}", e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Не удалось обновить книгу. Возможно, ISBN уже используется.");
+        }
     }
 
     @Transactional

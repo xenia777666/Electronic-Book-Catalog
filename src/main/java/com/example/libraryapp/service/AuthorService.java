@@ -7,8 +7,11 @@ import com.example.libraryapp.repository.AuthorRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -23,9 +26,26 @@ public class AuthorService {
     @Transactional
     public AuthorDto createAuthor(AuthorDto authorDto) {
         log.info("Creating author: {}", authorDto.getName());
+
+        // Проверка на дубликат имени
+        if (authorRepository.findByName(authorDto.getName()).isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Автор с именем " + authorDto.getName() + " уже существует");
+        }
+
         Author author = authorMapper.toEntity(authorDto);
-        Author savedAuthor = authorRepository.save(author);
-        return authorMapper.toDto(savedAuthor);
+
+        try {
+            Author savedAuthor = authorRepository.save(author);
+            log.info("Author created successfully with id: {}", savedAuthor.getId());
+            return authorMapper.toDto(savedAuthor);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while creating author: {}", e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Не удалось создать автора. Возможно, имя уже существует.");
+        }
     }
 
     public List<AuthorDto> getAllAuthors() {
@@ -52,6 +72,14 @@ public class AuthorService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Author not found with id: " + id));
 
+        // Проверка на дубликат имени при обновлении (если имя изменилось)
+        if (!author.getName().equals(authorDto.getName())
+                && authorRepository.findByName(authorDto.getName()).isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Автор с именем " + authorDto.getName() + " уже существует");
+        }
+
         author.setName(authorDto.getName());
         if (authorDto.getBiography() != null) {
             author.setBiography(authorDto.getBiography());
@@ -60,8 +88,16 @@ public class AuthorService {
             author.setBirthDate(authorDto.getBirthDate());
         }
 
-        Author updatedAuthor = authorRepository.save(author);
-        return authorMapper.toDto(updatedAuthor);
+        try {
+            Author updatedAuthor = authorRepository.save(author);
+            log.info("Author updated successfully");
+            return authorMapper.toDto(updatedAuthor);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while updating author: {}", e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Не удалось обновить автора. Возможно, имя уже используется.");
+        }
     }
 
     @Transactional
