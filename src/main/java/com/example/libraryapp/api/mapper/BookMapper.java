@@ -10,7 +10,8 @@ import com.example.libraryapp.domain.Genre;
 import com.example.libraryapp.domain.Publisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Set;
@@ -161,7 +162,10 @@ public class BookMapper {
 
         } catch (Exception e) {
             log.error("Error mapping Object[] to Book: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to map database result to Book", e);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to map database result to Book",
+                    e);
         }
 
         return book;
@@ -172,12 +176,12 @@ public class BookMapper {
         if (value == null) {
             return null;
         }
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
+        if (value instanceof Number number) {
+            return number.longValue();
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             try {
-                return Long.parseLong((String) value);
+                return Long.parseLong(string);
             } catch (NumberFormatException e) {
                 log.warn("Cannot convert '{}' to Long", value);
                 return null;
@@ -190,12 +194,12 @@ public class BookMapper {
         if (value == null) {
             return null;
         }
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
+        if (value instanceof Number number) {
+            return number.intValue();
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             try {
-                return Integer.parseInt((String) value);
+                return Integer.parseInt(string);
             } catch (NumberFormatException e) {
                 log.warn("Cannot convert '{}' to Integer", value);
                 return null;
@@ -208,12 +212,12 @@ public class BookMapper {
         if (value == null) {
             return null;
         }
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
+        if (value instanceof Number number) {
+            return number.doubleValue();
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             try {
-                return Double.parseDouble((String) value);
+                return Double.parseDouble(string);
             } catch (NumberFormatException e) {
                 log.warn("Cannot convert '{}' to Double", value);
                 return null;
@@ -226,15 +230,15 @@ public class BookMapper {
         if (value == null) {
             return null;
         }
-        if (value instanceof BigDecimal) {
-            return (BigDecimal) value;
+        if (value instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
         }
-        if (value instanceof Number) {
-            return BigDecimal.valueOf(((Number) value).doubleValue());
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             try {
-                return new BigDecimal((String) value);
+                return new BigDecimal(string);
             } catch (NumberFormatException e) {
                 log.warn("Cannot convert '{}' to BigDecimal", value);
                 return null;
@@ -249,4 +253,5 @@ public class BookMapper {
         }
         return value.toString();
     }
+
 }
