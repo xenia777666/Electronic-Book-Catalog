@@ -32,6 +32,7 @@ public class AuthorController {
     @Operation(summary = "Создать нового автора")
     @ApiResponse(responseCode = "201", description = "Автор создан")
     @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
+    @ApiResponse(responseCode = "409", description = "Автор с таким именем уже существует")
     @PostMapping
     public ResponseEntity<AuthorDto> createAuthor(@Valid @RequestBody AuthorDto authorDto) {
         log.info("POST /api/authors - Creating author: {}", authorDto.getName());
@@ -41,7 +42,6 @@ public class AuthorController {
 
     @Operation(summary = "Получить всех авторов")
     @ApiResponse(responseCode = "200", description = "Авторы найдены")
-    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping
     public ResponseEntity<List<AuthorDto>> getAllAuthors() {
         log.info("GET /api/authors");
@@ -51,6 +51,8 @@ public class AuthorController {
 
     @Operation(summary = "Найти автора по айди")
     @ApiResponse(responseCode = "200", description = "Автор найден")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры  запроса")
+    @ApiResponse(responseCode = "404", description = "Автор с указанным ID не найден")
     @GetMapping("/{id}")
     public ResponseEntity<AuthorDto> getAuthorById(@PathVariable Long id) {
         log.info("GET /api/authors/{}", id);
@@ -59,6 +61,10 @@ public class AuthorController {
     }
 
     @Operation(summary = "Обновить информацию об авторе по айди")
+    @ApiResponse(responseCode = "200", description = "Автор успешно обновлен")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
+    @ApiResponse(responseCode = "404", description = "Автор с указанным ID не найден")
+    @ApiResponse(responseCode = "409", description = "Автор с таким именем уже существует")
     @PutMapping("/{id}")
     public ResponseEntity<AuthorDto> updateAuthor(
             @PathVariable Long id,
@@ -69,6 +75,8 @@ public class AuthorController {
     }
 
     @Operation(summary = "Удалить автора по айди")
+    @ApiResponse(responseCode = "204", description = "Автор успешно удален")
+    @ApiResponse(responseCode = "404", description = "Автор с указанным ID не найден")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAuthor(@PathVariable Long id) {
         log.info("DELETE /api/authors/{}", id);
@@ -76,8 +84,8 @@ public class AuthorController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Найти автора по имени")
-    @ApiResponse(responseCode = "200", description = "Автор найден")
+    @Operation(summary = "Найти авторов по имени")
+    @ApiResponse(responseCode = "200", description = "Авторы найдены")
     @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search")
     public ResponseEntity<List<AuthorDto>> searchAuthorsByName(

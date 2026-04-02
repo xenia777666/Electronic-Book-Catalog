@@ -29,6 +29,9 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     @Operation(summary = "Создать отзыв")
+    @ApiResponse(responseCode = "201", description = "Отзыв создан")
+    @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
+    @ApiResponse(responseCode = "409", description = "Отзыв с таким именем уже существует")
     @PostMapping
     public ResponseEntity<ReviewDto> createReview(@Valid @RequestBody ReviewDto reviewDto) {
         log.info("POST /api/reviews - Creating review for book id: {}", reviewDto.getBookId());
@@ -47,6 +50,8 @@ public class ReviewController {
 
     @Operation(summary = "Посмотреть отзыв по айди")
     @ApiResponse(responseCode = "200", description = "Отзыв найден")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры  запроса")
+    @ApiResponse(responseCode = "404", description = "Отзыв с указанным ID не найден")
     @GetMapping("/{id}")
     public ResponseEntity<ReviewDto> getReviewById(@PathVariable Long id) {
         log.info("GET /api/reviews/{}", id);
@@ -55,6 +60,9 @@ public class ReviewController {
     }
 
     @Operation(summary = "Посмотреть отзыв по айди книги")
+    @ApiResponse(responseCode = "200", description = "Отзыв найден")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры  запроса")
+    @ApiResponse(responseCode = "404", description = "Отзыв с указанным ID книги не найден")
     @GetMapping("/book/{bookId}")
     public ResponseEntity<List<ReviewDto>> getReviewsByBookId(@PathVariable Long bookId) {
         log.info("GET /api/reviews/book/{}", bookId);
@@ -63,6 +71,10 @@ public class ReviewController {
     }
 
     @Operation(summary = "Редактировать отзыв по айди")
+    @ApiResponse(responseCode = "200", description = "Отзыв успешно обновлен")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
+    @ApiResponse(responseCode = "404", description = "Отзыв с указанным ID не найден")
+    @ApiResponse(responseCode = "409", description = "Отзыв таким именем уже существует")
     @PutMapping("/{id}")
     public ResponseEntity<ReviewDto> updateReview(
             @PathVariable Long id,
@@ -73,6 +85,8 @@ public class ReviewController {
     }
 
     @Operation(summary = "Удалить отзыв по айди")
+    @ApiResponse(responseCode = "204", description = "Отзыв успешно удален")
+    @ApiResponse(responseCode = "404", description = "Отзыв с указанным ID не найден")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
         log.info("DELETE /api/reviews/{}", id);

@@ -29,6 +29,9 @@ public class GenreController {
     private final GenreService genreService;
 
     @Operation(summary = "Создать новый жанр")
+    @ApiResponse(responseCode = "201", description = "Жанр создан")
+    @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
+    @ApiResponse(responseCode = "409", description = "Жанр с таким именем уже существует")
     @PostMapping
     public ResponseEntity<GenreDto> createGenre(@Valid @RequestBody GenreDto genreDto) {
         log.info("POST /api/genres - Creating genre: {}", genreDto.getName());
@@ -47,6 +50,8 @@ public class GenreController {
 
     @Operation(summary = "Посмотреть жанр по айди")
     @ApiResponse(responseCode = "200", description = "Жанр найден")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры  запроса")
+    @ApiResponse(responseCode = "404", description = "Жанр с указанным ID не найден")
     @GetMapping("/{id}")
     public ResponseEntity<GenreDto> getGenreById(@PathVariable Long id) {
         log.info("GET /api/genres/{}", id);
@@ -55,6 +60,10 @@ public class GenreController {
     }
 
     @Operation(summary = "Изменить жанр по айди")
+    @ApiResponse(responseCode = "200", description = "Жанр успешно обновлен")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
+    @ApiResponse(responseCode = "404", description = "Жанр с указанным ID не найден")
+    @ApiResponse(responseCode = "409", description = "Жанр таким именем уже существует")
     @PutMapping("/{id}")
     public ResponseEntity<GenreDto> updateGenre(
             @PathVariable Long id,
@@ -65,6 +74,8 @@ public class GenreController {
     }
 
     @Operation(summary = "Удалить жанр по айди")
+    @ApiResponse(responseCode = "204", description = "Жанр успешно удален")
+    @ApiResponse(responseCode = "404", description = "Жанр с указанным ID не найден")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteGenre(@PathVariable Long id) {
         log.info("DELETE /api/genres/{}", id);

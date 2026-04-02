@@ -47,7 +47,7 @@ public class BookController {
     }
 
     @Operation(summary = "Очистить кэш")
-    @ApiResponse(responseCode = "201", description = "Кэш очищен")
+    @ApiResponse(responseCode = "200", description = "Кэш очищен")
     @PostMapping("/cache/invalidate")
     public ResponseEntity<String> invalidateCache() {
         indexService.invalidateCache();
@@ -57,7 +57,6 @@ public class BookController {
     @Operation(summary = "Создать книгу")
     @ApiResponse(responseCode = "201", description = "Книга добавлена")
     @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
-    @ApiResponse(responseCode = "404", description = "Связанные сущности не найдены")
     @ApiResponse(responseCode = "409", description = "Такая книга уже существует")
     @PostMapping
     public ResponseEntity<BookResponseDto> createBook(@Valid @RequestBody BookDto bookDto) {
@@ -76,8 +75,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по критериям")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по критериям")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search/complex")
     public ResponseEntity<List<BookResponseDto>> searchBooksComplex(
             @RequestParam(required = false) String author,
@@ -98,8 +98,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по критериям с пагинацией")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по критериям с пагинацией")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search/complex-paginated")
     public ResponseEntity<Page<BookResponseDto>> searchBooksComplexWithPagination(
             @RequestParam(required = false) String author,
@@ -121,8 +122,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по критериям (через нейтив)")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по критериям (через нейтив)")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search/native")
     public ResponseEntity<List<BookResponseDto>> searchBooksNative(
             @RequestParam(required = false) String author,
@@ -142,8 +144,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по критериям (через нейтив) с пагинацией")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по критериям (через нейтив) с пагинацией")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search/native-paginated")
     public ResponseEntity<Page<BookResponseDto>> searchBooksNativeWithPagination(
             @RequestParam(required = false) String author,
@@ -165,8 +168,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по имени автора")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по имени автора")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search/author")
     public ResponseEntity<List<BookResponseDto>> searchBooksByAuthor(
             @RequestParam String authorName) {
@@ -175,8 +179,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по жанру")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по жанру")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search/genre")
     public ResponseEntity<List<BookResponseDto>> searchBooksByGenre(
             @RequestParam String genreName) {
@@ -185,8 +190,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по цене")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по цене")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/search/price")
     public ResponseEntity<List<BookResponseDto>> searchBooksByPriceRange(
             @RequestParam BigDecimal minPrice,
@@ -196,8 +202,9 @@ public class BookController {
         return ResponseEntity.ok(books);
     }
 
-    @Operation(summary = "Получить книгу по айди")
-    @ApiResponse(responseCode = "200", description = "Книга найдена")
+    @Operation(summary = "Получить книги по айди")
+    @ApiResponse(responseCode = "200", description = "Книги найдены")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
     @GetMapping("/{id}")
     public ResponseEntity<BookResponseDto> getBookById(@PathVariable Long id) {
         log.info("GET /api/books/{}", id);
@@ -207,6 +214,10 @@ public class BookController {
 
     @Operation(summary = "Редактировать книгу по айди")
     @PutMapping("/{id}")
+    @ApiResponse(responseCode = "200", description = "Книга успешно обновлена")
+    @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
+    @ApiResponse(responseCode = "404", description = "Книга с указанным ID не найдена")
+    @ApiResponse(responseCode = "409", description = "Книга с таким ISBN уже существует")
     public ResponseEntity<BookResponseDto> updateBook(
             @PathVariable Long id,
             @Valid @RequestBody BookDto bookDto) {
@@ -216,6 +227,8 @@ public class BookController {
     }
 
     @Operation(summary = "Удалить книгу по айди")
+    @ApiResponse(responseCode = "204", description = "Книга успешно удалена")
+    @ApiResponse(responseCode = "404", description = "Книга с указанным ID не найдена")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
         log.info("DELETE /api/books/{}", id);
@@ -224,21 +237,27 @@ public class BookController {
     }
 
     @Operation(summary = "Посмотреть все книги детально")
+    @ApiResponse(responseCode = "200", description = "Книги успешно получены")
     @GetMapping("/with-details")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithDetails() {
         log.info("GET /api/books/with-details");
         List<BookResponseDto> books = bookService.getAllBooksWithDetails();
         return ResponseEntity.ok(books);
     }
+
     @Operation(summary = "Демонстрация н+1 проблемы")
+    @ApiResponse(responseCode = "200", description = "Книги успешно получены (с проблемой N+1)")
     @GetMapping("/with-n-plus-one")
     public ResponseEntity<List<BookResponseDto>> getAllBooksWithNPlusOneProblem() {
         log.info("GET /api/books/with-n-plus-one");
         List<BookResponseDto> books = bookService.getAllBooksWithNPlus1Problem();
         return ResponseEntity.ok(books);
     }
+
     @Operation(summary = "Создание книги без транзакции")
     @PostMapping("/without-transaction")
+    @ApiResponse(responseCode = "201", description = "Книга создана")
+    @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
     public ResponseEntity<Book> createBookWithoutTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/without-transaction");
         Book book = bookService.createBookWithoutTransaction(bookDto);
@@ -247,6 +266,8 @@ public class BookController {
 
     @Operation(summary = "Создание книги с транзакцией")
     @PostMapping("/with-transaction")
+    @ApiResponse(responseCode = "201", description = "Книга создана")
+    @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
     public ResponseEntity<Book> createBookWithTransaction(@Valid @RequestBody BookDto bookDto) {
         log.info("POST /api/books/with-transaction");
         Book book = bookService.createBookWithTransaction(bookDto);

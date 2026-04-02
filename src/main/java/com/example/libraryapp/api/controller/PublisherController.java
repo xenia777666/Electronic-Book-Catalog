@@ -29,6 +29,9 @@ public class PublisherController {
     private final PublisherService publisherService;
 
     @Operation(summary = "Создать издателя")
+    @ApiResponse(responseCode = "201", description = "Издатель создан")
+    @ApiResponse(responseCode = "400", description = "Некорректные данные запроса")
+    @ApiResponse(responseCode = "409", description = "Издатель с таким именем уже существует")
     @PostMapping
     public ResponseEntity<PublisherDto> createPublisher(@Valid @RequestBody PublisherDto publisherDto) {
         log.info("POST /api/publishers - Creating publisher: {}", publisherDto.getName());
@@ -47,6 +50,8 @@ public class PublisherController {
 
     @Operation(summary = "Получить издателя по айди")
     @ApiResponse(responseCode = "200", description = "Издатель найден")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры  запроса")
+    @ApiResponse(responseCode = "404", description = "Издатель с указанным ID не найден")
     @GetMapping("/{id}")
     public ResponseEntity<PublisherDto> getPublisherById(@PathVariable Long id) {
         log.info("GET /api/publishers/{}", id);
@@ -55,6 +60,10 @@ public class PublisherController {
     }
 
     @Operation(summary = "Редактировать издателя по айди")
+    @ApiResponse(responseCode = "200", description = "Издатель успешно обновлен")
+    @ApiResponse(responseCode = "400", description = "Некорректные параметры запроса")
+    @ApiResponse(responseCode = "404", description = "Издатель с указанным ID не найден")
+    @ApiResponse(responseCode = "409", description = "Издатель таким именем уже существует")
     @PutMapping("/{id}")
     public ResponseEntity<PublisherDto> updatePublisher(
             @PathVariable Long id,
@@ -65,6 +74,8 @@ public class PublisherController {
     }
 
     @Operation(summary = "Удалить издателя по айди")
+    @ApiResponse(responseCode = "204", description = "Издатель успешно удален")
+    @ApiResponse(responseCode = "404", description = "Издатель с указанным ID не найден")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePublisher(@PathVariable Long id) {
         log.info("DELETE /api/publishers/{}", id);
