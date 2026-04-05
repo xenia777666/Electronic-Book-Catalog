@@ -3,45 +3,75 @@
 
 Electronic Book Catalog — это учебное Spring Boot приложение, представляющее собой REST API для управления каталогом книг. Финальной целью является создание полноценного backend-сервиса с подключением к базе данных, реализующего операции просмотра, поиска, сортировки и управления каталогом книг. На данный момент реализована возможность получения полного каталога книг, различных запросов и реализована in-memory индекс на основе HashMap<K, V>.
 
-1. Реализовать глобальную обработку ошибок через @ControllerAdvice.
-2. Добавить валидацию входных данных через @Valid.
-3. Реализовать единый формат ошибки для всех endpoint.
-4. Настроить логирование через logback:
-- уровни логирования
-- ротация логов
-5. Реализовать аспект (AOP) для логирования времени выполнения сервисных методов.
-6. Подключить Swagger/OpenAPI с описанием endpoint и DTO.
+1. Реализовать bulk-операцию (POST со списком объектов), имеющую бизнес-смысл в рамках проекта.
+2. Использовать Stream API и Optional в сервисном слое.
+3. Обеспечить транзакционность bulk-операции. Продемонстрировать работу с/без @Transactional и показать разницу в состоянии БД.
+4. Написать:
+- unit-тесты для сервисов (Mockito)
 [Сонар](https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog)
 [Swagger](http://localhost:8080/swagger-ui/index.html#/)
 
-## Сложный GET-запрос с фильтрацией по вложенной сущности с использованием @Query
+##  Успешная bulk-операция
 
-   GET http://localhost:8080/api/books/search/complex-paginated?genre=Классика&minPrice=400&maxPrice=1000&page=0&size=3
-
-## Тест на статусы
-   GET http://localhost:8080/api/books/99999 404
-  
-   POST http://localhost:8080/api/books {
-   "isbn": "9785045552555",
-   "title": "Другая книга",
-   "description": "Это попытка создать дубликат",
-   "publicationYear": 2024,
+   POST http://localhost:8080/api/books/bulk [
+   {
+   "isbn": "9785041111111",
+   "title": "Bulk книга 1",
    "price": 500.00,
    "publisherId": 1,
    "authorIds": [1]
-   } 409
+   },
+   {
+   "isbn": "9785042222222",
+   "title": "Bulk книга 2",
+   "price": 600.00,
+   "publisherId": 1,
+   "authorIds": [1]
+   }
+   ]
 
-400 + валидация
-{
-"isbn": "invalid",
-"title": "",
-"price": -10}
+## Bulk-операция (ошибка) без транзакции
+
+   POST http://localhost:8080/api/books/bulk/without-transaction 
+
+   [
+   {
+   "isbn": "9785043333333",
+   "title": "Первая книга (сохранится)",
+   "price": 500.00,
+   "publisherId": 1,
+   "authorIds": [1]
+   },
+   {
+   "isbn": "9785699180312",
+   "title": "Вторая книга (дубликат, вызовет ошибку)",
+   "price": 500.00,
+   "publisherId": 1,
+   "authorIds": [1]
+   }
+   ]
+
  
-## Запросы для инвалидации и статуса кэша
+## Bulk-операция (ошибка) с транзакцией
 
-   POST http://localhost:8080/api/books/cache/invalidate
+   POST http://localhost:8080/api/books/bulk/with-transaction
 
-   GET http://localhost:8080/api/books/cache/stats
+   [
+    {
+        "isbn": "9785044444444",
+        "title": "Первая книга",
+        "price": 500.00,
+        "publisherId": 1,
+        "authorIds": [1]
+    },
+    {
+        "isbn": "9785699180312",
+        "title": "Вторая книга (дубликат)",
+        "price": 500.00,
+        "publisherId": 1,
+        "authorIds": [1]
+    }
+   ]
 
 ## ER-диаграмма базы данных
 

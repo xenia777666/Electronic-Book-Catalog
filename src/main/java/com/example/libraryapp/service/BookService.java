@@ -3,6 +3,7 @@ package com.example.libraryapp.service;
 import com.example.libraryapp.api.dto.BookDto;
 import com.example.libraryapp.api.dto.BookResponseDto;
 import com.example.libraryapp.api.dto.BookSearchCriteria;
+import com.example.libraryapp.api.dto.BulkCreateResultDto;
 import com.example.libraryapp.api.mapper.BookMapper;
 import com.example.libraryapp.domain.Author;
 import com.example.libraryapp.domain.Book;
@@ -11,6 +12,7 @@ import com.example.libraryapp.domain.Publisher;
 import com.example.libraryapp.repository.AuthorRepository;
 import com.example.libraryapp.repository.BookRepository;
 import com.example.libraryapp.repository.GenreRepository;
+import java.util.ArrayList;
 import com.example.libraryapp.repository.PublisherRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.PageImpl;
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -381,5 +384,156 @@ public class BookService {
     public Book createBookWithTransaction(BookDto bookDto) {
         log.info("DEMONSTRATING ATOMIC SAVE WITH @Transactional");
         return createBookWithTempEntities(bookDto, true);
+    }
+
+
+
+    @Transactional
+    public BulkCreateResultDto bulkCreateBooks(List<BookDto> booksDto) {
+        log.info("Bulk creating {} books WITH transaction", booksDto.size());
+
+        BulkCreateResultDto result = new BulkCreateResultDto();
+        result.setTotalRequested(booksDto.size());
+
+        List<Book> booksToSave = booksDto.stream()
+                .map(this::prepareBookEntity)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
+
+        int successful = booksToSave.size();
+        int failed = booksDto.size() - successful;
+
+        result.setSuccessful(successful);
+        result.setFailed(failed);
+
+        if (!booksToSave.isEmpty()) {
+            List<Book> savedBooks = bookRepository.saveAll(booksToSave);
+            result.setCreatedBooks(savedBooks.stream()
+                    .map(bookMapper::toDto)
+                    .toList());
+        }
+
+
+        for (int i = 0; i < booksDto.size(); i++) {
+            BookDto dto = booksDto.get(i);
+            if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
+                result.getErrors().add("Книга с ISBN " + dto.getIsbn() + " уже существует");
+            }
+        }
+
+        indexService.invalidateCache();
+        log.info("Bulk create completed: {} successful, {} failed", successful, failed);
+        return result;
+    }
+
+    private Optional<Book> prepareBookEntity(BookDto dto) {
+        try {
+
+            if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
+                log.warn("Book with ISBN {} already exists", dto.getIsbn());
+                return Optional.empty();
+            }
+
+            Book book = bookMapper.toEntity(dto);
+            setBookPublisher(book, dto.getPublisherId());
+            setBookAuthors(book, dto.getAuthorIds());
+            setBookGenres(book, dto.getGenreIds());
+            return Optional.of(book);
+        } catch (Exception e) {
+            log.error("Error preparing book entity: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+
+
+    public BulkCreateResultDto bulkCreateBooksWithoutTransaction(List<BookDto> booksDto) {
+        log.warn("DEMONSTRATING BULK CREATE WITHOUT @Transactional");
+
+        BulkCreateResultDto result = new BulkCreateResultDto();
+        result.setTotalRequested(booksDto.size());
+
+        List<BookResponseDto> createdBooks = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (BookDto dto : booksDto) {
+            try {
+
+                if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
+                    errors.add("Книга с ISBN " + dto.getIsbn() + " уже существует");
+                    continue;
+                }
+
+
+                Book book = bookMapper.toEntity(dto);
+                setBookPublisher(book, dto.getPublisherId());
+                setBookAuthors(book, dto.getAuthorIds());
+                setBookGenres(book, dto.getGenreIds());
+
+                Book savedBook = bookRepository.save(book);
+                createdBooks.add(bookMapper.toDto(savedBook));
+
+            } catch (Exception e) {
+                errors.add("Ошибка при создании книги '" + dto.getTitle() + "': " + e.getMessage());
+                log.error("Error creating book: {}", dto.getTitle(), e);
+            }
+        }
+
+        result.setSuccessful(createdBooks.size());
+        result.setFailed(booksDto.size() - createdBooks.size());
+        result.setCreatedBooks(createdBooks);
+        result.setErrors(errors);
+
+        indexService.invalidateCache();
+        log.info("Bulk create WITHOUT transaction: {} successful, {} failed",
+                createdBooks.size(), booksDto.size() - createdBooks.size());
+        return result;
+    }
+
+
+
+    @Transactional
+    public BulkCreateResultDto bulkCreateBooksWithTransaction(List<BookDto> booksDto) {
+        log.info("DEMONSTRATING BULK CREATE WITH @Transactional");
+
+        BulkCreateResultDto result = new BulkCreateResultDto();
+        result.setTotalRequested(booksDto.size());
+
+        List<BookDto> invalidBooks = booksDto.stream()
+                .filter(dto -> bookRepository.findByIsbn(dto.getIsbn()).isPresent())
+                .toList();
+
+        if (!invalidBooks.isEmpty()) {
+            String duplicateIsbns = invalidBooks.stream()
+                    .map(BookDto::getIsbn)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Обнаружены дубликаты ISBN: " + duplicateIsbns + ". Все операции откатятся."
+            );
+        }
+
+        List<Book> booksToSave = booksDto.stream()
+                .map(dto -> {
+                    Book book = bookMapper.toEntity(dto);
+                    setBookPublisher(book, dto.getPublisherId());
+                    setBookAuthors(book, dto.getAuthorIds());
+                    setBookGenres(book, dto.getGenreIds());
+                    return book;
+                })
+                .toList();
+
+        // Сохранение всех книг в одной транзакции
+        List<Book> savedBooks = bookRepository.saveAll(booksToSave);
+        result.setSuccessful(savedBooks.size());
+        result.setFailed(0);
+        result.setCreatedBooks(savedBooks.stream()
+                .map(bookMapper::toDto)
+                .toList());
+
+        indexService.invalidateCache();
+        log.info("Bulk create WITH transaction: {} books saved atomically", savedBooks.size());
+        return result;
     }
 }

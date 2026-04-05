@@ -3,6 +3,7 @@ package com.example.libraryapp.api.controller;
 import com.example.libraryapp.api.dto.BookDto;
 import com.example.libraryapp.api.dto.BookResponseDto;
 import com.example.libraryapp.api.dto.BookSearchCriteria;
+import com.example.libraryapp.api.dto.BulkCreateResultDto;
 import com.example.libraryapp.domain.Book;
 import com.example.libraryapp.service.BookService;
 import com.example.libraryapp.service.IndexService;
@@ -272,6 +273,37 @@ public class BookController {
         log.info("POST /api/books/with-transaction");
         Book book = bookService.createBookWithTransaction(bookDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
+    }
+
+
+    @Operation(summary = "Массовое создание книг (с транзакцией)")
+    @ApiResponse(responseCode = "200", description = "Операция выполнена")
+    @PostMapping("/bulk")
+    public ResponseEntity<BulkCreateResultDto> bulkCreateBooks(@Valid @RequestBody List<BookDto> booksDto) {
+        log.info("POST /api/books/bulk - Creating {} books", booksDto.size());
+        BulkCreateResultDto result = bookService.bulkCreateBooks(booksDto);
+        return ResponseEntity.ok(result);
+    }
+
+    @SuppressWarnings("checkstyle:Indentation")
+    @Operation(summary = "Массовое создание книг БЕЗ транзакции (демонстрация)")
+    @ApiResponse(responseCode = "200", description = "Операция выполнена (частично)")
+    @PostMapping("/bulk/without-transaction")
+    public ResponseEntity<BulkCreateResultDto> bulkCreateBooksWithoutTransaction(
+            @Valid @RequestBody List<BookDto> booksDto) {
+        log.info("POST /api/books/bulk/without-transaction - Creating {} books WITHOUT transaction", booksDto.size());
+        BulkCreateResultDto result = bookService.bulkCreateBooksWithoutTransaction(booksDto);
+        return ResponseEntity.ok(result);
+    }
+
+    @Operation(summary = "Массовое создание книг С транзакцией (демонстрация)")
+    @ApiResponse(responseCode = "200", description = "Операция выполнена (атомарно)")
+    @PostMapping("/bulk/with-transaction")
+    public ResponseEntity<BulkCreateResultDto> bulkCreateBooksWithTransaction(
+            @Valid @RequestBody List<BookDto> booksDto) {
+        log.info("POST /api/books/bulk/with-transaction - Creating {} books WITH transaction", booksDto.size());
+        BulkCreateResultDto result = bookService.bulkCreateBooksWithTransaction(booksDto);
+        return ResponseEntity.ok(result);
     }
 
 }
