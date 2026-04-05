@@ -87,8 +87,11 @@ class BookServiceTest {
         List<BookDto> booksDto = List.of(validBookDto);
         when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
         when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-        when(authorRepository.findAllById(anySet())).thenReturn(new HashSet<>());
-        when(genreRepository.findAllById(anySet())).thenReturn(new HashSet<>());
+
+        // ✅ Исправлено: doReturn для коллекций
+        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
+        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
+
         when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
         when(bookRepository.saveAll(anyList())).thenReturn(List.of(validBook));
         when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
@@ -99,7 +102,7 @@ class BookServiceTest {
         // then
         assertThat(result.getTotalRequested()).isEqualTo(1);
         assertThat(result.getSuccessful()).isEqualTo(1);
-        assertThat(result.getFailed()).isEqualTo(0);
+        assertThat(result.getFailed()).isZero();
         assertThat(result.getCreatedBooks()).hasSize(1);
     }
 
@@ -114,7 +117,7 @@ class BookServiceTest {
 
         // then
         assertThat(result.getTotalRequested()).isEqualTo(1);
-        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getSuccessful()).isZero();
         assertThat(result.getFailed()).isEqualTo(1);
         verify(bookRepository, never()).saveAll(anyList());
     }
@@ -127,8 +130,11 @@ class BookServiceTest {
                 .thenReturn(Optional.empty())   // первая книга — ок
                 .thenReturn(Optional.of(validBook)); // вторая — дубликат
         when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-        when(authorRepository.findAllById(anySet())).thenReturn(new HashSet<>());
-        when(genreRepository.findAllById(anySet())).thenReturn(new HashSet<>());
+
+        // ✅ Исправлено: doReturn для коллекций
+        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
+        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
+
         when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
         when(bookRepository.saveAll(anyList())).thenReturn(List.of(validBook));
         when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
@@ -152,8 +158,11 @@ class BookServiceTest {
                 .thenReturn(Optional.empty())   // первая книга — ок
                 .thenReturn(Optional.of(validBook)); // вторая — дубликат
         when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-        when(authorRepository.findAllById(anySet())).thenReturn(new HashSet<>());
-        when(genreRepository.findAllById(anySet())).thenReturn(new HashSet<>());
+
+        // ✅ Исправлено: doReturn для коллекций
+        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
+        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
+
         when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
         when(bookRepository.save(any(Book.class))).thenReturn(validBook);
         when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
@@ -191,8 +200,11 @@ class BookServiceTest {
         List<BookDto> booksDto = List.of(validBookDto);
         when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
         when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-        when(authorRepository.findAllById(anySet())).thenReturn(new HashSet<>());
-        when(genreRepository.findAllById(anySet())).thenReturn(new HashSet<>());
+
+        // ✅ Исправлено: doReturn для коллекций
+        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
+        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
+
         when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
         when(bookRepository.saveAll(anyList())).thenReturn(List.of(validBook));
         when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
@@ -202,7 +214,7 @@ class BookServiceTest {
 
         // then
         assertThat(result.getSuccessful()).isEqualTo(1);
-        assertThat(result.getFailed()).isEqualTo(0);
+        assertThat(result.getFailed()).isZero();
         verify(bookRepository, times(1)).saveAll(anyList());
     }
 
@@ -213,8 +225,11 @@ class BookServiceTest {
         // given
         when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
         when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-        when(authorRepository.findAllById(anySet())).thenReturn(new HashSet<>());
-        when(genreRepository.findAllById(anySet())).thenReturn(new HashSet<>());
+
+        // ✅ Исправлено: doReturn для коллекций
+        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
+        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
+
         when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
         when(bookRepository.save(any(Book.class))).thenReturn(validBook);
         when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
