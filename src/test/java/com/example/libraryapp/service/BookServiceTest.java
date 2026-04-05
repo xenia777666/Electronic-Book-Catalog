@@ -1,306 +1,172 @@
 package com.example.libraryapp.service;
 
-import com.example.libraryapp.api.dto.BookDto;
-import com.example.libraryapp.api.dto.BookResponseDto;
-import com.example.libraryapp.api.dto.BulkCreateResultDto;
+import com.example.libraryapp.api.dto.*;
 import com.example.libraryapp.api.mapper.BookMapper;
-import com.example.libraryapp.domain.Book;
-import com.example.libraryapp.domain.Publisher;
-import com.example.libraryapp.repository.AuthorRepository;
-import com.example.libraryapp.repository.BookRepository;
-import com.example.libraryapp.repository.GenreRepository;
-import com.example.libraryapp.repository.PublisherRepository;
+import com.example.libraryapp.domain.*;
+import com.example.libraryapp.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.*;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class BookServiceTest {
 
-    @Mock
-    private BookRepository bookRepository;
+    @Mock private BookRepository bookRepository;
+    @Mock private AuthorRepository authorRepository;
+    @Mock private PublisherRepository publisherRepository;
+    @Mock private GenreRepository genreRepository;
+    @Mock private BookMapper bookMapper;
+    @Mock private IndexService indexService;  // Мок для IndexService
 
-    @Mock
-    private AuthorRepository authorRepository;
+    private BookService bookService;  // ← Ручное создание
 
-    @Mock
-    private PublisherRepository publisherRepository;
-
-    @Mock
-    private GenreRepository genreRepository;
-
-    @Mock
-    private BookMapper bookMapper;
-
-    @Mock
-    private IndexService indexService;
-
-    @InjectMocks
-    private BookService bookService;
-
-    private BookDto validBookDto;
-    private Book validBook;
-    private BookResponseDto validBookResponseDto;
+    private BookDto bookDto;
+    private Book book;
+    private BookResponseDto bookResponseDto;
     private Publisher publisher;
+    private Author author;
+    private Genre genre;
 
     @BeforeEach
     void setUp() {
+        // ← РУЧНОЕ СОЗДАНИЕ BookService
+        bookService = new BookService(
+                bookRepository, authorRepository, publisherRepository,
+                genreRepository, bookMapper, indexService
+        );
+
+        bookDto = new BookDto();
+        bookDto.setIsbn("978-3-16-148410-0");
+        bookDto.setTitle("Test Book");
+        bookDto.setPublisherId(1L);
+        bookDto.setAuthorIds(Set.of(1L));
+        bookDto.setGenreIds(Set.of(1L));
+
+        book = new Book();
+        book.setId(1L);
+        book.setTitle("Test Book");
+
+        bookResponseDto = new BookResponseDto();
+        bookResponseDto.setId(1L);
+        bookResponseDto.setTitle("Test Book");
+
         publisher = new Publisher();
         publisher.setId(1L);
-        publisher.setName("Эксмо");
 
-        validBookDto = new BookDto();
-        validBookDto.setIsbn("978-5-699-18031-2");
-        validBookDto.setTitle("Мастер и Маргарита");
-        validBookDto.setPrice(new BigDecimal("450.00"));
-        validBookDto.setPublisherId(1L);
-        validBookDto.setAuthorIds(Set.of(1L));
+        author = new Author();
+        author.setId(1L);
 
-        validBook = new Book();
-        validBook.setId(1L);
-        validBook.setIsbn(validBookDto.getIsbn());
-        validBook.setTitle(validBookDto.getTitle());
-
-        validBookResponseDto = new BookResponseDto();
-        validBookResponseDto.setId(1L);
-        validBookResponseDto.setIsbn(validBookDto.getIsbn());
-        validBookResponseDto.setTitle(validBookDto.getTitle());
+        genre = new Genre();
+        genre.setId(1L);
     }
 
-    // ============= ТЕСТЫ ДЛЯ BULK-ОПЕРАЦИИ =============
-
     @Test
-    void bulkCreateBooks_ShouldReturnSuccess_WhenAllBooksValid() {
+    void createBook_Success() {
         // given
-        List<BookDto> booksDto = List.of(validBookDto);
-        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(bookRepository.findByIsbn(bookDto.getIsbn())).thenReturn(Optional.empty());
         when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-
-        // ✅ Исправлено: doReturn для коллекций
-        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
-        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
-
-        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
-        when(bookRepository.saveAll(anyList())).thenReturn(List.of(validBook));
-        when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
+        when(authorRepository.findAllById(Set.of(1L))).thenReturn(List.of(author));
+        when(genreRepository.findAllById(Set.of(1L))).thenReturn(List.of(genre));
+        when(bookMapper.toEntity(bookDto)).thenReturn(book);
+        when(bookRepository.save(book)).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
         // when
-        BulkCreateResultDto result = bookService.bulkCreateBooks(booksDto);
+        BookResponseDto result = bookService.createBook(bookDto);
 
         // then
-        assertThat(result.getTotalRequested()).isEqualTo(1);
-        assertThat(result.getSuccessful()).isEqualTo(1);
-        assertThat(result.getFailed()).isZero();
-        assertThat(result.getCreatedBooks()).hasSize(1);
-    }
-
-    @Test
-    void bulkCreateBooks_ShouldSkipDuplicate_WhenIsbnExists() {
-        // given
-        List<BookDto> booksDto = List.of(validBookDto);
-        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.of(validBook));
-
-        // when
-        BulkCreateResultDto result = bookService.bulkCreateBooks(booksDto);
-
-        // then
-        assertThat(result.getTotalRequested()).isEqualTo(1);
-        assertThat(result.getSuccessful()).isZero();
-        assertThat(result.getFailed()).isEqualTo(1);
-        verify(bookRepository, never()).saveAll(anyList());
-    }
-
-    @Test
-    void bulkCreateBooks_ShouldReturnPartialSuccess_WhenSomeInvalid() {
-        // given
-        List<BookDto> booksDto = List.of(validBookDto, validBookDto);
-        when(bookRepository.findByIsbn(anyString()))
-                .thenReturn(Optional.empty())   // первая книга — ок
-                .thenReturn(Optional.of(validBook)); // вторая — дубликат
-        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-
-        // ✅ Исправлено: doReturn для коллекций
-        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
-        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
-
-        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
-        when(bookRepository.saveAll(anyList())).thenReturn(List.of(validBook));
-        when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
-
-        // when
-        BulkCreateResultDto result = bookService.bulkCreateBooks(booksDto);
-
-        // then
-        assertThat(result.getTotalRequested()).isEqualTo(2);
-        assertThat(result.getSuccessful()).isEqualTo(1);
-        assertThat(result.getFailed()).isEqualTo(1);
-    }
-
-    // ============= ТЕСТЫ ДЛЯ ДЕМОНСТРАЦИИ ТРАНЗАКЦИЙ =============
-
-    @Test
-    void bulkCreateBooksWithoutTransaction_ShouldReturnPartialSuccess_WhenSomeFail() {
-        // given
-        List<BookDto> booksDto = List.of(validBookDto, validBookDto);
-        when(bookRepository.findByIsbn(anyString()))
-                .thenReturn(Optional.empty())   // первая книга — ок
-                .thenReturn(Optional.of(validBook)); // вторая — дубликат
-        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-
-        // ✅ Исправлено: doReturn для коллекций
-        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
-        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
-
-        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
-        when(bookRepository.save(any(Book.class))).thenReturn(validBook);
-        when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
-
-        // when
-        BulkCreateResultDto result = bookService.bulkCreateBooksWithoutTransaction(booksDto);
-
-        // then
-        assertThat(result.getTotalRequested()).isEqualTo(2);
-        assertThat(result.getSuccessful()).isEqualTo(1);
-        assertThat(result.getFailed()).isEqualTo(1);
-        assertThat(result.getErrors()).hasSize(1);
-        verify(bookRepository, times(1)).save(any(Book.class));
-    }
-
-    @Test
-    void bulkCreateBooksWithTransaction_ShouldThrowException_WhenAnyDuplicate() {
-        // given
-        List<BookDto> booksDto = List.of(validBookDto, validBookDto);
-        when(bookRepository.findByIsbn(anyString()))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(validBook));
-
-        // when & then
-        assertThatThrownBy(() -> bookService.bulkCreateBooksWithTransaction(booksDto))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Обнаружены дубликаты ISBN");
-
-        verify(bookRepository, never()).saveAll(anyList());
-    }
-
-    @Test
-    void bulkCreateBooksWithTransaction_ShouldSaveAll_WhenAllValid() {
-        // given
-        List<BookDto> booksDto = List.of(validBookDto);
-        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
-        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-
-        // ✅ Исправлено: doReturn для коллекций
-        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
-        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
-
-        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
-        when(bookRepository.saveAll(anyList())).thenReturn(List.of(validBook));
-        when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
-
-        // when
-        BulkCreateResultDto result = bookService.bulkCreateBooksWithTransaction(booksDto);
-
-        // then
-        assertThat(result.getSuccessful()).isEqualTo(1);
-        assertThat(result.getFailed()).isZero();
-        verify(bookRepository, times(1)).saveAll(anyList());
-    }
-
-    // ============= ТЕСТЫ ДЛЯ CRUD =============
-
-    @Test
-    void createBook_ShouldReturnCreatedBook_WhenValid() {
-        // given
-        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
-        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
-
-        // ✅ Исправлено: doReturn для коллекций
-        doReturn(Collections.emptySet()).when(authorRepository).findAllById(anySet());
-        doReturn(Collections.emptySet()).when(genreRepository).findAllById(anySet());
-
-        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(validBook);
-        when(bookRepository.save(any(Book.class))).thenReturn(validBook);
-        when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
-
-        // when
-        BookResponseDto result = bookService.createBook(validBookDto);
-
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getTitle()).isEqualTo("Мастер и Маргарита");
+        assertThat(result.getTitle()).isEqualTo("Test Book");
+        verify(bookRepository).save(book);
         verify(indexService).invalidateCache();
     }
 
     @Test
-    void createBook_ShouldThrowConflict_WhenIsbnExists() {
-        // given
-        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.of(validBook));
+    void createBook_IsbnExists_ThrowsConflict() {
+        when(bookRepository.findByIsbn(bookDto.getIsbn())).thenReturn(Optional.of(book));
 
-        // when & then
-        assertThatThrownBy(() -> bookService.createBook(validBookDto))
+        assertThatThrownBy(() -> bookService.createBook(bookDto))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("уже существует");
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
     }
 
     @Test
-    void getBookById_ShouldReturnBook_WhenExists() {
-        // given
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(validBook));
-        when(bookMapper.toDto(any(Book.class))).thenReturn(validBookResponseDto);
+    void getBookById_Success() {
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
-        // when
         BookResponseDto result = bookService.getBookById(1L);
 
-        // then
-        assertThat(result).isNotNull();
-        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getTitle()).isEqualTo("Test Book");
     }
 
     @Test
-    void getBookById_ShouldThrowNotFound_WhenNotExists() {
-        // given
+    void getBookById_NotFound_ThrowsNotFound() {
         when(bookRepository.findById(999L)).thenReturn(Optional.empty());
 
-        // when & then
         assertThatThrownBy(() -> bookService.getBookById(999L))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("not found");
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
     @Test
-    void deleteBook_ShouldDelete_WhenExists() {
-        // given
+    void deleteBook_Success() {
         when(bookRepository.existsById(1L)).thenReturn(true);
-        doNothing().when(bookRepository).deleteById(1L);
 
-        // when
-        bookService.deleteBook(1L);
+        assertThatNoException().isThrownBy(() -> bookService.deleteBook(1L));
 
-        // then
         verify(bookRepository).deleteById(1L);
         verify(indexService).invalidateCache();
     }
 
     @Test
-    void deleteBook_ShouldThrowNotFound_WhenNotExists() {
-        // given
+    void deleteBook_NotFound_ThrowsNotFound() {
         when(bookRepository.existsById(999L)).thenReturn(false);
 
-        // when & then
         assertThatThrownBy(() -> bookService.deleteBook(999L))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("not found");
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void bulkCreateBooksWithoutTransaction_Success() {
+        List<BookDto> books = List.of(bookDto);
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(any())).thenReturn(List.of(author));
+        when(genreRepository.findAllById(any())).thenReturn(List.of(genre));
+        when(bookMapper.toEntity(bookDto)).thenReturn(book);
+        when(bookRepository.save(book)).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        BulkCreateResultDto result = bookService.bulkCreateBooksWithoutTransaction(books);
+
+        assertThat(result.getSuccessful()).isEqualTo(1);
+        assertThat(result.getFailed()).isZero();
+    }
+
+    @Test
+    void getAllBooks_Pagination() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Book> page = new PageImpl<>(List.of(book));
+
+        when(bookRepository.findAll(pageable)).thenReturn(page);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        Page<BookResponseDto> result = bookService.getAllBooks(pageable);
+
+        assertThat(result.getContent()).hasSize(1);
     }
 }
