@@ -577,15 +577,7 @@ class IndexServiceTest {
     }
 
     // ============= HELPER METHODS =============
-
-    // ============= HELPER METHODS =============
     private Class<?> getCacheKeyClass() throws Exception {
-        Class<?>[] declaredClasses = IndexService.class.getDeclaredClasses();
-        for (Class<?> declaredClass : declaredClasses) {
-            if ("CacheKey".equals(declaredClass.getSimpleName())) {
-                return declaredClass;
-            }
-        }
-        throw new RuntimeException("CacheKey class not found");
+        return Class.forName("com.example.libraryapp.service.IndexService$CacheKey");
     }
 }
