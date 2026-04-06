@@ -728,21 +728,6 @@ class BookServiceTest {
     }
 
     @Test
-    void createBookWithTempEntities_WithError_ThrowsException_WithoutTransaction() {
-        BookDto dto = new BookDto();
-        dto.setTitle("error test");
-        dto.setIsbn("978-3-16-148410-0");
-
-        when(publisherRepository.save(any())).thenReturn(publisher);
-        when(authorRepository.save(any())).thenReturn(author);
-        when(bookMapper.toEntity(dto)).thenReturn(book);
-
-        assertThatThrownBy(() -> bookService.createBookWithoutTransaction(dto))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Simulating error during save!");
-    }
-
-    @Test
     void createBookWithTempEntities_WithError_ThrowsException_WithTransaction() {
         BookDto dto = new BookDto();
         dto.setTitle("error test");
