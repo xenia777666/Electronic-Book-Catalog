@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.*;
+
 
 
 import java.math.BigDecimal;
@@ -328,7 +328,7 @@ class BookServiceTest {
         List<BookDto> books = List.of(dto);
         BulkCreateResultDto result = bookService.bulkCreateBooks(books);
 
-        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getSuccessful()).isZero();
         assertThat(result.getFailed()).isEqualTo(1);
     }
 
@@ -345,7 +345,7 @@ class BookServiceTest {
         List<BookDto> books = List.of(dto);
         BulkCreateResultDto result = bookService.bulkCreateBooks(books);
 
-        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getSuccessful()).isZero();
         assertThat(result.getFailed()).isEqualTo(1);
     }
 
@@ -378,7 +378,7 @@ class BookServiceTest {
         List<BookDto> books = List.of(dto);
         BulkCreateResultDto result = bookService.bulkCreateBooksWithoutTransaction(books);
 
-        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getSuccessful()).isZero();
         assertThat(result.getFailed()).isEqualTo(1);
         assertThat(result.getErrors()).hasSize(1);
     }
@@ -399,7 +399,7 @@ class BookServiceTest {
         List<BookDto> books = List.of(dto);
         BulkCreateResultDto result = bookService.bulkCreateBooksWithoutTransaction(books);
 
-        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getSuccessful()).isZero();
         assertThat(result.getFailed()).isEqualTo(1);
         assertThat(result.getErrors()).hasSize(1);
     }
