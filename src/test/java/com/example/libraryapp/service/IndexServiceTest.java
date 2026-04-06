@@ -138,14 +138,12 @@ class IndexServiceTest {
         List<BookResponseDto> result = indexService.getFromCache(criteria, pageable);
 
         // Проверка
-        assertThat(result).isNotNull();
-        assertThat(result).isSameAs(bookList);
-
-        // Проверка лога HIT
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
-                event.getFormattedMessage().contains("List Cache HIT for key:") &&
-                        event.getLevel() == Level.INFO
+        assertAll(
+                () -> assertThat(result).isNotNull().isSameAs(bookList),
+                () -> assertThat(listAppender.list).anyMatch(event ->
+                        event.getFormattedMessage().contains("List Cache HIT for key:") &&
+                                event.getLevel() == Level.INFO
+                )
         );
     }
 
@@ -286,14 +284,12 @@ class IndexServiceTest {
         Page<BookResponseDto> result = indexService.getPageFromCache(criteria, pageable);
 
         // Проверка
-        assertThat(result).isNotNull();
-        assertThat(result).isSameAs(bookPage);
-
-        // Проверка лога HIT
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
-                event.getFormattedMessage().contains("Page Cache HIT for key:") &&
-                        event.getLevel() == Level.INFO
+        assertAll(
+                () -> assertThat(result).isNotNull().isSameAs(bookPage),
+                () -> assertThat(listAppender.list).anyMatch(event ->
+                        event.getFormattedMessage().contains("Page Cache HIT for key:") &&
+                                event.getLevel() == Level.INFO
+                )
         );
     }
 
@@ -582,11 +578,11 @@ class IndexServiceTest {
 
     // ============= HELPER METHODS =============
 
+    // ============= HELPER METHODS =============
     private Class<?> getCacheKeyClass() throws Exception {
         Class<?>[] declaredClasses = IndexService.class.getDeclaredClasses();
         for (Class<?> declaredClass : declaredClasses) {
-            if (declaredClass instanceof Class &&
-                    declaredClass.getSimpleName().equals("CacheKey")) {
+            if ("CacheKey".equals(declaredClass.getSimpleName())) {
                 return declaredClass;
             }
         }
