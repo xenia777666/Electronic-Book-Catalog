@@ -169,4 +169,210 @@ class BookServiceTest {
 
         assertThat(result.getContent()).hasSize(1);
     }
+
+    @Test
+    void updateBook_Success() {
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn("978-3-16-148410-1");
+        updateDto.setTitle("Updated Book");
+        updateDto.setPublisherId(1L);
+        updateDto.setAuthorIds(Set.of(1L));
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.findByIsbn(updateDto.getIsbn())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(any())).thenReturn(List.of(author));
+        when(genreRepository.findAllById(any())).thenReturn(List.of(genre));
+        when(bookRepository.save(book)).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        BookResponseDto result = bookService.updateBook(1L, updateDto);
+
+        assertThat(result.getTitle()).isEqualTo("Test Book");
+        verify(bookRepository).save(book);
+        verify(indexService).invalidateCache();
+    }
+
+    @Test
+    void updateBook_IsbnExists_ThrowsConflict() {
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn("978-3-16-148410-1");
+        updateDto.setTitle("Updated Book");
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.findByIsbn(updateDto.getIsbn())).thenReturn(Optional.of(new Book()));
+
+        assertThatThrownBy(() -> bookService.updateBook(1L, updateDto))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void updateBook_NotFound_ThrowsNotFound() {
+        when(bookRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> bookService.updateBook(999L, bookDto))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void bulkCreateBooks_Success() {
+        List<BookDto> books = List.of(bookDto);
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(any())).thenReturn(List.of(author));
+        when(genreRepository.findAllById(any())).thenReturn(List.of(genre));
+        when(bookMapper.toEntity(bookDto)).thenReturn(book);
+        when(bookRepository.saveAll(anyList())).thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        BulkCreateResultDto result = bookService.bulkCreateBooks(books);
+
+        assertThat(result.getSuccessful()).isEqualTo(1);
+    }
+
+    @Test
+    void bulkCreateBooksWithTransaction_Success() {
+        List<BookDto> books = List.of(bookDto);
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(any())).thenReturn(List.of(author));
+        when(genreRepository.findAllById(any())).thenReturn(List.of(genre));
+        when(bookMapper.toEntity(bookDto)).thenReturn(book);
+        when(bookRepository.saveAll(anyList())).thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        BulkCreateResultDto result = bookService.bulkCreateBooksWithTransaction(books);
+
+        assertThat(result.getSuccessful()).isEqualTo(1);
+    }
+
+    @Test
+    void bulkCreateBooksWithTransaction_Duplicate_ThrowsException() {
+        List<BookDto> books = List.of(bookDto, bookDto);
+
+        when(bookRepository.findByIsbn(anyString()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(book));
+
+        assertThatThrownBy(() -> bookService.bulkCreateBooksWithTransaction(books))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void searchBooks_Success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        BookSearchCriteria criteria = new BookSearchCriteria();
+        criteria.setAuthorName("Test");
+
+        when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        List<BookResponseDto> result = bookService.searchBooks(criteria, pageable);
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void searchBooksWithPagination_Success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        BookSearchCriteria criteria = new BookSearchCriteria();
+
+        when(bookRepository.findBooksByComplexCriteriaWithPagination(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(book)));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        Page<BookResponseDto> result = bookService.searchBooksWithPagination(criteria, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    void findBooksByAuthor_Success() {
+        when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        List<BookResponseDto> result = bookService.findBooksByAuthor("Test");
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void findBooksByGenre_Success() {
+        when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        List<BookResponseDto> result = bookService.findBooksByGenre("Test");
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void findBooksByPriceRange_Success() {
+        when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        List<BookResponseDto> result = bookService.findBooksByPriceRange(BigDecimal.TEN, BigDecimal.valueOf(100));
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void getAllBooksWithDetails_Success() {
+        when(bookRepository.findAllWithDetails()).thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        List<BookResponseDto> result = bookService.getAllBooksWithDetails();
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void getAllBooksWithNPlus1Problem_Success() {
+        when(bookRepository.findAll()).thenReturn(List.of(book));
+
+        List<BookResponseDto> result = bookService.getAllBooksWithNPlus1Problem();
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void createBookWithoutTransaction_Success() {
+        BookDto dto = new BookDto();
+        dto.setTitle("Test Book");
+        dto.setIsbn("978-3-16-148410-0");
+
+        when(publisherRepository.save(any())).thenReturn(publisher);
+        when(authorRepository.save(any())).thenReturn(author);
+        when(bookMapper.toEntity(dto)).thenReturn(book);
+        when(bookRepository.save(book)).thenReturn(book);
+
+        Book result = bookService.createBookWithoutTransaction(dto);
+
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    void createBookWithTransaction_Success() {
+        BookDto dto = new BookDto();
+        dto.setTitle("Test Book");
+        dto.setIsbn("978-3-16-148410-0");
+
+        when(publisherRepository.save(any())).thenReturn(publisher);
+        when(authorRepository.save(any())).thenReturn(author);
+        when(bookMapper.toEntity(dto)).thenReturn(book);
+        when(bookRepository.save(book)).thenReturn(book);
+
+        Book result = bookService.createBookWithTransaction(dto);
+
+        assertThat(result).isNotNull();
+    }
 }
