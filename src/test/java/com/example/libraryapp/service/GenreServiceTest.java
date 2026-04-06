@@ -6,6 +6,7 @@ import com.example.libraryapp.domain.Genre;
 import com.example.libraryapp.repository.GenreRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -153,25 +155,31 @@ class GenreServiceTest {
         verify(genreRepository, never()).save(any());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     void createGenre_Success() {
         GenreDto genreDto = new GenreDto();
         genreDto.setName("Роман");
         genreDto.setDescription("Описание");
 
-        Genre genre = new Genre();
-        genre.setId(1L);
-        genre.setName("Роман");
+        Genre newGenre = new Genre();  // Переименовали с 'genre' на 'newGenre'
+        newGenre.setId(1L);
+        newGenre.setName("Роман");
+        newGenre.setDescription("Описание");
 
-        when(genreMapper.toEntity(genreDto)).thenReturn(genre);
-        when(genreRepository.save(genre)).thenReturn(genre);
-        when(genreMapper.toDto(genre)).thenReturn(responseDto);
+        GenreDto responseDto = new GenreDto();
+        responseDto.setId(1L);
+        responseDto.setName("Роман");
+        responseDto.setDescription("Описание");
+
+        when(genreMapper.toEntity(genreDto)).thenReturn(newGenre);
+        when(genreRepository.save(newGenre)).thenReturn(newGenre);
+        when(genreMapper.toDto(newGenre)).thenReturn(responseDto);
 
         GenreDto result = genreService.createGenre(genreDto);
 
-        org.assertj.core.api.Assertions.assertThat(result).isNotNull();
+        assertThat(result).isNotNull();
         verify(genreMapper).toEntity(genreDto);
-        verify(genreRepository).save(genre);
+        verify(genreRepository).save(newGenre);
     }
 
     @org.junit.jupiter.api.Test

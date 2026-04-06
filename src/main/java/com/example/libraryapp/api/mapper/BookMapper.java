@@ -125,8 +125,7 @@ public class BookMapper {
             }
 
             Long publisherId = convertToLong(row[idx++]);
-            String publisherName = convertToString(row[idx]);
-            idx++; // Инкрементируем после использования
+            String publisherName = convertToString(row[idx++]);
             if (publisherId != null && publisherName != null) {
                 Publisher publisher = new Publisher();
                 publisher.setId(publisherId);
