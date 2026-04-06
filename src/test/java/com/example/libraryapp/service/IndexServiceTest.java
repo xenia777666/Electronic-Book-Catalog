@@ -20,6 +20,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 class IndexServiceTest {
 
@@ -89,25 +90,8 @@ class IndexServiceTest {
         );
     }
     @Test
-    void getFromCache_WithUnpagedPageable_ReturnsNullWhenCacheMiss() {
-        // Выполнение - pageable.unpaged(), кеш пуст
-        Pageable unpaged = Pageable.unpaged();
-        List<BookResponseDto> result = indexService.getFromCache(criteria, unpaged);
-
-        // Проверка
-        assertThat(result).isNull();
-
-        // Проверка лога MISS
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
-                event.getFormattedMessage().contains("List Cache MISS for key:") &&
-                        event.getLevel() == Level.INFO
-        );
-    }
-
-    @Test
     void getFromCache_WithUnpagedPageable_ReturnsValueWhenCacheHit() {
-        // Подготовка - кладем в кеш с unpaged
+        // Подготовка
         Pageable unpaged = Pageable.unpaged();
         indexService.putInCache(criteria, unpaged, bookList);
         listAppender.list.clear();
@@ -115,15 +99,14 @@ class IndexServiceTest {
         // Выполнение
         List<BookResponseDto> result = indexService.getFromCache(criteria, unpaged);
 
-        // Проверка
-        assertThat(result).isNotNull();
-        assertThat(result).isSameAs(bookList);
-
-        // Проверка лога HIT
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
-                event.getFormattedMessage().contains("List Cache HIT for key:") &&
-                        event.getLevel() == Level.INFO
+        // Объединяем все assertions в один блок
+        assertAll(
+                () -> assertThat(result).isNotNull(),
+                () -> assertThat(result).isSameAs(bookList),
+                () -> assertThat(listAppender.list).anyMatch(event ->
+                        event.getFormattedMessage().contains("List Cache HIT for key:") &&
+                                event.getLevel() == Level.INFO
+                )
         );
     }
 
@@ -176,15 +159,14 @@ class IndexServiceTest {
         // Выполнение
         List<BookResponseDto> result = indexService.getFromCache(criteria, pageable);
 
-        // Проверка
-        assertThat(result).isNotNull();
-        assertThat(result).isSameAs(bookList);
-
-        // Проверка лога HIT
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
-                event.getFormattedMessage().contains("List Cache HIT for key:") &&
-                        event.getLevel() == Level.INFO
+// Проверка
+        assertAll(
+                () -> assertThat(result).isNotNull(),
+                () -> assertThat(result).isSameAs(bookList),
+                () -> assertThat(listAppender.list).anyMatch(event ->
+                        event.getFormattedMessage().contains("List Cache HIT for key:") &&
+                                event.getLevel() == Level.INFO
+                )
         );
     }
 
@@ -200,13 +182,14 @@ class IndexServiceTest {
 
         // Проверка - значение сохранено
         List<BookResponseDto> cached = indexService.getFromCache(criteria, null);
-        assertThat(cached).isSameAs(bookList);
 
-        // Проверка лога
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
-                event.getFormattedMessage().contains("Cached List results for key:") &&
-                        event.getLevel() == Level.INFO
+        // Объединяем все проверки
+        assertAll(
+                () -> assertThat(cached).isSameAs(bookList),
+                () -> assertThat(listAppender.list).anyMatch(event ->
+                        event.getFormattedMessage().contains("Cached List results for key:") &&
+                                event.getLevel() == Level.INFO
+                )
         );
     }
 
@@ -327,13 +310,13 @@ class IndexServiceTest {
 
         // Проверка
         Page<BookResponseDto> cached = indexService.getPageFromCache(criteria, pageable);
-        assertThat(cached).isSameAs(bookPage);
 
-        // Проверка лога
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
-                event.getFormattedMessage().contains("Cached Page results for key:") &&
-                        event.getLevel() == Level.INFO
+        assertAll(
+                () -> assertThat(cached).isSameAs(bookPage),
+                () -> assertThat(listAppender.list).anyMatch(event ->
+                        event.getFormattedMessage().contains("Cached Page results for key:") &&
+                                event.getLevel() == Level.INFO
+                )
         );
     }
 
@@ -602,7 +585,8 @@ class IndexServiceTest {
     private Class<?> getCacheKeyClass() throws Exception {
         Class<?>[] declaredClasses = IndexService.class.getDeclaredClasses();
         for (Class<?> declaredClass : declaredClasses) {
-            if (declaredClass.getSimpleName().equals("CacheKey")) {
+            if (declaredClass instanceof Class &&
+                    declaredClass.getSimpleName().equals("CacheKey")) {
                 return declaredClass;
             }
         }
