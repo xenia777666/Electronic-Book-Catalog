@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -104,6 +105,58 @@ class BookServiceTest {
                 .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
     }
 
+    @Test
+    void createBook_DataIntegrityViolation_ThrowsConflict() {
+        when(bookRepository.findByIsbn(bookDto.getIsbn())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
+        when(genreRepository.findAllById(anySet())).thenReturn(List.of(genre));
+        when(bookMapper.toEntity(bookDto)).thenReturn(book);
+        when(bookRepository.save(book)).thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        assertThatThrownBy(() -> bookService.createBook(bookDto))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void createBook_AuthorsNotFound_ThrowsNotFound() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-1");
+        dto.setTitle("Test Book");
+        dto.setPublisherId(1L);
+        dto.setAuthorIds(Set.of(999L));
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);  // ← ДОБАВИТЬ!
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> bookService.createBook(dto))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void createBook_GenresNotFound_ThrowsNotFound() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-1");
+        dto.setTitle("Test Book");
+        dto.setPublisherId(1L);
+        dto.setAuthorIds(Set.of(1L));
+        dto.setGenreIds(Set.of(999L));
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);  // ← ДОБАВИТЬ!
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
+        when(genreRepository.findAllById(anySet())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> bookService.createBook(dto))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
+    }
+
     // ============= READ =============
 
     @Test
@@ -196,6 +249,25 @@ class BookServiceTest {
                 .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void updateBook_DataIntegrityViolation_ThrowsConflict() {
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn("978-3-16-148410-1");
+        updateDto.setTitle("Updated Book");
+        updateDto.setPublisherId(1L);
+        updateDto.setAuthorIds(Set.of(1L));
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.findByIsbn(updateDto.getIsbn())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
+        when(bookRepository.save(book)).thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        assertThatThrownBy(() -> bookService.updateBook(1L, updateDto))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
+    }
+
     // ============= DELETE =============
 
     @Test
@@ -238,6 +310,38 @@ class BookServiceTest {
     }
 
     @Test
+    void bulkCreateBooks_DuplicateIsbn_ReturnsEmpty() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-0");
+        dto.setTitle("Test Book");
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.of(book));
+
+        List<BookDto> books = List.of(dto);
+        BulkCreateResultDto result = bookService.bulkCreateBooks(books);
+
+        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getFailed()).isEqualTo(1);
+    }
+
+
+    @Test
+    void bulkCreateBooks_PrepareEntityException_ReturnsEmpty() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-0");
+        dto.setTitle("Test Book");
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(bookMapper.toEntity(dto)).thenThrow(new RuntimeException("Mapping error"));
+
+        List<BookDto> books = List.of(dto);
+        BulkCreateResultDto result = bookService.bulkCreateBooks(books);
+
+        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getFailed()).isEqualTo(1);
+    }
+
+    @Test
     void bulkCreateBooksWithoutTransaction_Success() {
         List<BookDto> books = List.of(bookDto);
 
@@ -253,6 +357,43 @@ class BookServiceTest {
 
         assertThat(result.getSuccessful()).isEqualTo(1);
         assertThat(result.getFailed()).isZero();
+    }
+
+    @Test
+    void bulkCreateBooksWithoutTransaction_DuplicateIsbn_AddsError() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-0");
+        dto.setTitle("Test Book");
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.of(book));
+
+        List<BookDto> books = List.of(dto);
+        BulkCreateResultDto result = bookService.bulkCreateBooksWithoutTransaction(books);
+
+        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getFailed()).isEqualTo(1);
+        assertThat(result.getErrors()).hasSize(1);
+    }
+
+    @Test
+    void bulkCreateBooksWithoutTransaction_Exception_AddsError() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-0");
+        dto.setTitle("Test Book");
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
+        when(genreRepository.findAllById(anySet())).thenReturn(List.of(genre));
+        when(bookMapper.toEntity(dto)).thenReturn(book);
+        when(bookRepository.save(book)).thenThrow(new RuntimeException("DB error"));
+
+        List<BookDto> books = List.of(dto);
+        BulkCreateResultDto result = bookService.bulkCreateBooksWithoutTransaction(books);
+
+        assertThat(result.getSuccessful()).isEqualTo(0);
+        assertThat(result.getFailed()).isEqualTo(1);
+        assertThat(result.getErrors()).hasSize(1);
     }
 
     @Test
@@ -274,13 +415,14 @@ class BookServiceTest {
     }
 
     @Test
-    void bulkCreateBooksWithTransaction_Duplicate_ThrowsException() {
-        List<BookDto> books = List.of(bookDto, bookDto);
+    void bulkCreateBooksWithTransaction_DuplicateIsbn_ThrowsException() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-0");
+        dto.setTitle("Test Book");
 
-        when(bookRepository.findByIsbn(anyString()))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(book));
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.of(book));
 
+        List<BookDto> books = List.of(dto);
         assertThatThrownBy(() -> bookService.bulkCreateBooksWithTransaction(books))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
@@ -298,11 +440,25 @@ class BookServiceTest {
         when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
-        doNothing().when(indexService).putInCache(any(), any(), any());  // ← исправлено
+        doNothing().when(indexService).putInCache(any(), any(), any());
 
         List<BookResponseDto> result = bookService.searchBooks(criteria, pageable);
 
         assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void searchBooks_CacheHit() {
+        Pageable pageable = PageRequest.of(0, 10);
+        BookSearchCriteria criteria = new BookSearchCriteria();
+        criteria.setAuthorName("Test");
+
+        when(indexService.getFromCache(any(), any())).thenReturn(List.of(bookResponseDto));
+
+        List<BookResponseDto> result = bookService.searchBooks(criteria, pageable);
+
+        assertThat(result).hasSize(1);
+        verify(bookRepository, never()).findBooksByComplexCriteria(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -314,13 +470,26 @@ class BookServiceTest {
         when(bookRepository.findBooksByComplexCriteriaWithPagination(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(book)));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
-        doNothing().when(indexService).putPageInCache(any(), any(), any());  // ← исправлено
+        doNothing().when(indexService).putPageInCache(any(), any(), any());
 
         Page<BookResponseDto> result = bookService.searchBooksWithPagination(criteria, pageable);
 
         assertThat(result.getContent()).hasSize(1);
     }
 
+    @Test
+    void searchBooksWithPagination_CacheHit() {
+        Pageable pageable = PageRequest.of(0, 10);
+        BookSearchCriteria criteria = new BookSearchCriteria();
+
+        Page<BookResponseDto> cachedPage = new PageImpl<>(List.of(bookResponseDto));
+        when(indexService.getPageFromCache(any(), any())).thenReturn(cachedPage);
+
+        Page<BookResponseDto> result = bookService.searchBooksWithPagination(criteria, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(bookRepository, never()).findBooksByComplexCriteriaWithPagination(any(), any(), any(), any(), any(), any(), any());
+    }
 
     @Test
     void findBooksByAuthor_Success() {
@@ -328,11 +497,21 @@ class BookServiceTest {
         when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
-        doNothing().when(indexService).putInCache(any(), any(), any());  // ← исправлено
+        doNothing().when(indexService).putInCache(any(), any(), any());
 
         List<BookResponseDto> result = bookService.findBooksByAuthor("Test");
 
         assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void findBooksByAuthor_CacheHit() {
+        when(indexService.getFromCache(any(), any())).thenReturn(List.of(bookResponseDto));
+
+        List<BookResponseDto> result = bookService.findBooksByAuthor("Test");
+
+        assertThat(result).hasSize(1);
+        verify(bookRepository, never()).findBooksByComplexCriteria(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -341,11 +520,21 @@ class BookServiceTest {
         when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
-        doNothing().when(indexService).putInCache(any(), any(), any());  // ← исправлено
+        doNothing().when(indexService).putInCache(any(), any(), any());
 
         List<BookResponseDto> result = bookService.findBooksByGenre("Test");
 
         assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void findBooksByGenre_CacheHit() {
+        when(indexService.getFromCache(any(), any())).thenReturn(List.of(bookResponseDto));
+
+        List<BookResponseDto> result = bookService.findBooksByGenre("Test");
+
+        assertThat(result).hasSize(1);
+        verify(bookRepository, never()).findBooksByComplexCriteria(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -354,11 +543,102 @@ class BookServiceTest {
         when(bookRepository.findBooksByComplexCriteria(any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
-        doNothing().when(indexService).putInCache(any(), any(), any());  // ← исправлено
+        doNothing().when(indexService).putInCache(any(), any(), any());
 
         List<BookResponseDto> result = bookService.findBooksByPriceRange(BigDecimal.TEN, BigDecimal.valueOf(100));
 
         assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void findBooksByPriceRange_CacheHit() {
+        when(indexService.getFromCache(any(), any())).thenReturn(List.of(bookResponseDto));
+
+        List<BookResponseDto> result = bookService.findBooksByPriceRange(BigDecimal.TEN, BigDecimal.valueOf(100));
+
+        assertThat(result).hasSize(1);
+        verify(bookRepository, never()).findBooksByComplexCriteria(any(), any(), any(), any(), any(), any());
+    }
+
+    // ============= NATIVE METHODS =============
+
+    @Test
+    void searchBooksNative_Success() {
+        BookSearchCriteria criteria = new BookSearchCriteria();
+        criteria.setAuthorName("Test");
+
+        Object[] row = new Object[13];
+        row[0] = 1L;
+        row[1] = "978-3-16-148410-0";
+        row[2] = "Test Book";
+        row[3] = "Description";
+        row[4] = 2024;
+        row[5] = new BigDecimal("99.99");
+        row[6] = 4.5;
+        row[7] = 1L;
+        row[8] = "Test Author";
+        row[9] = 1L;
+        row[10] = "Test Genre";
+        row[11] = 1L;
+        row[12] = "Test Publisher";
+
+        when(indexService.getFromCache(any(), any())).thenReturn(null);
+        when(bookRepository.findBooksByComplexCriteriaNative(any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.singletonList(row));
+        when(bookMapper.mapToBook(any())).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+        doNothing().when(indexService).putInCache(any(), any(), any());
+
+        List<BookResponseDto> result = bookService.searchBooksNative(criteria);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTitle()).isEqualTo("Test Book");
+    }
+
+    @Test
+    void searchBooksNative_CacheHit() {
+        BookSearchCriteria criteria = new BookSearchCriteria();
+        criteria.setAuthorName("Test");
+
+        when(indexService.getFromCache(any(), any())).thenReturn(List.of(bookResponseDto));
+
+        List<BookResponseDto> result = bookService.searchBooksNative(criteria);
+
+        assertThat(result).hasSize(1);
+        verify(bookRepository, never()).findBooksByComplexCriteriaNative(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void searchBooksNativeWithPagination_Success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        BookSearchCriteria criteria = new BookSearchCriteria();
+
+        Object[] row = new Object[13];
+        row[0] = 1L;
+        row[1] = "978-3-16-148410-0";
+        row[2] = "Test Book";
+        row[3] = "Description";
+        row[4] = 2024;
+        row[5] = new BigDecimal("99.99");
+        row[6] = 4.5;
+        row[7] = 1L;
+        row[8] = "Test Author";
+        row[9] = 1L;
+        row[10] = "Test Genre";
+        row[11] = 1L;
+        row[12] = "Test Publisher";
+
+        Page<Object[]> page = new PageImpl<>(Collections.singletonList(row), pageable, 1);
+
+        when(bookRepository.findBooksByComplexCriteriaNativeWithPagination(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(page);
+        when(bookMapper.mapToBook(any())).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        Page<BookResponseDto> result = bookService.searchBooksNativeWithPagination(criteria, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Book");
     }
 
     // ============= DEMONSTRATION METHODS =============
@@ -414,76 +694,5 @@ class BookServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getTitle()).isEqualTo("Test Book");
-    }
-
-    // ============= NATIVE METHODS =============
-
-    @Test
-    void searchBooksNative_Success() {
-        BookSearchCriteria criteria = new BookSearchCriteria();
-        criteria.setAuthorName("Test");
-
-        // Создаем заглушку для Object[]
-        Object[] row = new Object[13];
-        row[0] = 1L;
-        row[1] = "978-3-16-148410-0";
-        row[2] = "Test Book";
-        row[3] = "Description";
-        row[4] = 2024;
-        row[5] = new BigDecimal("99.99");
-        row[6] = 4.5;
-        row[7] = 1L;
-        row[8] = "Test Author";
-        row[9] = 1L;
-        row[10] = "Test Genre";
-        row[11] = 1L;
-        row[12] = "Test Publisher";
-
-        when(indexService.getFromCache(any(), any())).thenReturn(null);
-        when(bookRepository.findBooksByComplexCriteriaNative(any(), any(), any(), any(), any(), any()))
-                .thenReturn(Collections.singletonList(row));  // ← исправлено
-        when(bookMapper.mapToBook(any())).thenReturn(book);
-        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
-        doNothing().when(indexService).putInCache(any(), any(), any());
-
-        List<BookResponseDto> result = bookService.searchBooksNative(criteria);
-
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getTitle()).isEqualTo("Test Book");
-    }
-
-    @Test
-    void searchBooksNativeWithPagination_Success() {
-        Pageable pageable = PageRequest.of(0, 10);
-        BookSearchCriteria criteria = new BookSearchCriteria();
-
-        // Создаем заглушку для Object[]
-        Object[] row = new Object[13];
-        row[0] = 1L;
-        row[1] = "978-3-16-148410-0";
-        row[2] = "Test Book";
-        row[3] = "Description";
-        row[4] = 2024;
-        row[5] = new BigDecimal("99.99");
-        row[6] = 4.5;
-        row[7] = 1L;
-        row[8] = "Test Author";
-        row[9] = 1L;
-        row[10] = "Test Genre";
-        row[11] = 1L;
-        row[12] = "Test Publisher";
-
-        // Явно указываем тип Page<Object[]>
-        Page<Object[]> page = new PageImpl<>(Collections.singletonList(row), pageable, 1);
-
-        when(bookRepository.findBooksByComplexCriteriaNativeWithPagination(any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(page);
-        when(bookMapper.mapToBook(any())).thenReturn(book);
-        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
-
-        Page<BookResponseDto> result = bookService.searchBooksNativeWithPagination(criteria, pageable);
-
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Book");
     }
 }
