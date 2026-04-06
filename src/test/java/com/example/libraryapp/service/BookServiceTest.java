@@ -415,4 +415,75 @@ class BookServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getTitle()).isEqualTo("Test Book");
     }
+
+    // ============= NATIVE METHODS =============
+
+    @Test
+    void searchBooksNative_Success() {
+        BookSearchCriteria criteria = new BookSearchCriteria();
+        criteria.setAuthorName("Test");
+
+        // Создаем заглушку для Object[]
+        Object[] row = new Object[13];
+        row[0] = 1L;
+        row[1] = "978-3-16-148410-0";
+        row[2] = "Test Book";
+        row[3] = "Description";
+        row[4] = 2024;
+        row[5] = new BigDecimal("99.99");
+        row[6] = 4.5;
+        row[7] = 1L;
+        row[8] = "Test Author";
+        row[9] = 1L;
+        row[10] = "Test Genre";
+        row[11] = 1L;
+        row[12] = "Test Publisher";
+
+        when(indexService.getFromCache(any(), any())).thenReturn(null);
+        when(bookRepository.findBooksByComplexCriteriaNative(any(), any(), any(), any(), any(), any()))
+                .thenReturn(Collections.singletonList(row));  // ← исправлено
+        when(bookMapper.mapToBook(any())).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+        doNothing().when(indexService).putInCache(any(), any(), any());
+
+        List<BookResponseDto> result = bookService.searchBooksNative(criteria);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTitle()).isEqualTo("Test Book");
+    }
+
+    @Test
+    void searchBooksNativeWithPagination_Success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        BookSearchCriteria criteria = new BookSearchCriteria();
+
+        // Создаем заглушку для Object[]
+        Object[] row = new Object[13];
+        row[0] = 1L;
+        row[1] = "978-3-16-148410-0";
+        row[2] = "Test Book";
+        row[3] = "Description";
+        row[4] = 2024;
+        row[5] = new BigDecimal("99.99");
+        row[6] = 4.5;
+        row[7] = 1L;
+        row[8] = "Test Author";
+        row[9] = 1L;
+        row[10] = "Test Genre";
+        row[11] = 1L;
+        row[12] = "Test Publisher";
+
+        // Явно указываем тип Page<Object[]>
+        Page<Object[]> page = new PageImpl<>(Collections.singletonList(row), pageable, 1);
+
+        when(bookRepository.findBooksByComplexCriteriaNativeWithPagination(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(page);
+        when(bookMapper.mapToBook(any())).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        Page<BookResponseDto> result = bookService.searchBooksNativeWithPagination(criteria, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Book");
+    }
 }
