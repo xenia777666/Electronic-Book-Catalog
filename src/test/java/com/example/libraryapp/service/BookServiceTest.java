@@ -26,12 +26,18 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class BookServiceTest {
 
-    @Mock private BookRepository bookRepository;
-    @Mock private AuthorRepository authorRepository;
-    @Mock private PublisherRepository publisherRepository;
-    @Mock private GenreRepository genreRepository;
-    @Mock private BookMapper bookMapper;
-    @Mock private IndexService indexService;
+    @Mock
+    private BookRepository bookRepository;
+    @Mock
+    private AuthorRepository authorRepository;
+    @Mock
+    private PublisherRepository publisherRepository;
+    @Mock
+    private GenreRepository genreRepository;
+    @Mock
+    private BookMapper bookMapper;
+    @Mock
+    private IndexService indexService;
 
     private BookService bookService;
 
@@ -796,9 +802,9 @@ class BookServiceTest {
     }
 
     @Test
-    void createBookWithoutTransaction_WithErrorTitle_ThrowsException() {
+    void createBookWithoutTransaction_ErrorTitle_ThrowsException() {
         BookDto dto = new BookDto();
-        dto.setTitle("error test");  // ← содержит "error"
+        dto.setTitle("error test");
         dto.setIsbn("978-3-16-148410-0");
 
         when(publisherRepository.save(any())).thenReturn(publisher);
@@ -811,9 +817,9 @@ class BookServiceTest {
     }
 
     @Test
-    void createBookWithTransaction_WithErrorTitle_ThrowsException() {
+    void createBookWithTransaction_ErrorTitle_ThrowsException() {
         BookDto dto = new BookDto();
-        dto.setTitle("error test");  // ← содержит "error"
+        dto.setTitle("error test");
         dto.setIsbn("978-3-16-148410-0");
 
         when(publisherRepository.save(any())).thenReturn(publisher);
@@ -825,10 +831,11 @@ class BookServiceTest {
                 .hasMessageContaining("Simulating error during save - transaction will rollback!");
     }
 
+    // ← ЭТОТ ТЕСТ МОЖЕТ НЕ ХВАТАТЬ!
     @Test
-    void createBookWithoutTransaction_ErrorInTitle_CoversWithoutTransactionBranch() {
+    void createBookWithTransaction_NormalTitle_NoError() {
         BookDto dto = new BookDto();
-        dto.setTitle("error test");
+        dto.setTitle("normal title");  // НЕТ слова "error"
         dto.setIsbn("978-3-16-148410-0");
         dto.setPrice(new BigDecimal("99.99"));
         dto.setPublisherId(1L);
@@ -837,17 +844,17 @@ class BookServiceTest {
         when(publisherRepository.save(any(Publisher.class))).thenReturn(publisher);
         when(authorRepository.save(any(Author.class))).thenReturn(author);
         when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);
+        when(bookRepository.save(any(Book.class))).thenReturn(book);
 
-        // withTransaction = false (через createBookWithoutTransaction)
-        assertThatThrownBy(() -> bookService.createBookWithoutTransaction(dto))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Simulating error during save!");
+        Book result = bookService.createBookWithTransaction(dto);
+
+        assertThat(result).isNotNull();
     }
 
     @Test
-    void createBookWithTransaction_ErrorInTitle_CoversWithTransactionBranch() {
+    void createBookWithTransaction_NullTitle_NoError() {
         BookDto dto = new BookDto();
-        dto.setTitle("error test");
+        dto.setTitle(null);  // ← NULL
         dto.setIsbn("978-3-16-148410-0");
         dto.setPrice(new BigDecimal("99.99"));
         dto.setPublisherId(1L);
@@ -856,11 +863,10 @@ class BookServiceTest {
         when(publisherRepository.save(any(Publisher.class))).thenReturn(publisher);
         when(authorRepository.save(any(Author.class))).thenReturn(author);
         when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);
+        when(bookRepository.save(any(Book.class))).thenReturn(book);
 
-        // withTransaction = true (через createBookWithTransaction)
-        assertThatThrownBy(() -> bookService.createBookWithTransaction(dto))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Simulating error during save - transaction will rollback!");
+        Book result = bookService.createBookWithTransaction(dto);
+
+        assertThat(result).isNotNull();
     }
-
 }
