@@ -21,11 +21,13 @@
     <properties>
         <java.version>17</java.version>
         <jacoco.version>0.8.12</jacoco.version>
+
         <!-- SonarCloud -->
         <sonar.projectKey>xenia777666_ElectronicBookCatalog</sonar.projectKey>
         <sonar.organization>xenia777666</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.exclusions>**/config/**/*,**/exception/**/*,**/dto/**/*,**/mapper/**/*</sonar.coverage.exclusions>
     </properties>
 
     <dependencies>
