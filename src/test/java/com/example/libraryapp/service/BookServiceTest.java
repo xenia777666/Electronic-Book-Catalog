@@ -825,4 +825,42 @@ class BookServiceTest {
                 .hasMessageContaining("Simulating error during save - transaction will rollback!");
     }
 
+    @Test
+    void createBookWithoutTransaction_ErrorInTitle_CoversWithoutTransactionBranch() {
+        BookDto dto = new BookDto();
+        dto.setTitle("error test");
+        dto.setIsbn("978-3-16-148410-0");
+        dto.setPrice(new BigDecimal("99.99"));
+        dto.setPublisherId(1L);
+        dto.setAuthorIds(Set.of(1L));
+
+        when(publisherRepository.save(any(Publisher.class))).thenReturn(publisher);
+        when(authorRepository.save(any(Author.class))).thenReturn(author);
+        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);
+
+        // withTransaction = false (через createBookWithoutTransaction)
+        assertThatThrownBy(() -> bookService.createBookWithoutTransaction(dto))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Simulating error during save!");
+    }
+
+    @Test
+    void createBookWithTransaction_ErrorInTitle_CoversWithTransactionBranch() {
+        BookDto dto = new BookDto();
+        dto.setTitle("error test");
+        dto.setIsbn("978-3-16-148410-0");
+        dto.setPrice(new BigDecimal("99.99"));
+        dto.setPublisherId(1L);
+        dto.setAuthorIds(Set.of(1L));
+
+        when(publisherRepository.save(any(Publisher.class))).thenReturn(publisher);
+        when(authorRepository.save(any(Author.class))).thenReturn(author);
+        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);
+
+        // withTransaction = true (через createBookWithTransaction)
+        assertThatThrownBy(() -> bookService.createBookWithTransaction(dto))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Simulating error during save - transaction will rollback!");
+    }
+
 }
