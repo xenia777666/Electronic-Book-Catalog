@@ -795,4 +795,34 @@ class BookServiceTest {
         verify(genreRepository, never()).findAllById(anySet());
     }
 
+    @Test
+    void createBookWithoutTransaction_WithErrorTitle_ThrowsException() {
+        BookDto dto = new BookDto();
+        dto.setTitle("error test");  // ← содержит "error"
+        dto.setIsbn("978-3-16-148410-0");
+
+        when(publisherRepository.save(any())).thenReturn(publisher);
+        when(authorRepository.save(any())).thenReturn(author);
+        when(bookMapper.toEntity(dto)).thenReturn(book);
+
+        assertThatThrownBy(() -> bookService.createBookWithoutTransaction(dto))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Simulating error during save!");
+    }
+
+    @Test
+    void createBookWithTransaction_WithErrorTitle_ThrowsException() {
+        BookDto dto = new BookDto();
+        dto.setTitle("error test");  // ← содержит "error"
+        dto.setIsbn("978-3-16-148410-0");
+
+        when(publisherRepository.save(any())).thenReturn(publisher);
+        when(authorRepository.save(any())).thenReturn(author);
+        when(bookMapper.toEntity(dto)).thenReturn(book);
+
+        assertThatThrownBy(() -> bookService.createBookWithTransaction(dto))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Simulating error during save - transaction will rollback!");
+    }
+
 }
