@@ -80,7 +80,6 @@ public class BookMapper {
         return dto;
     }
 
-
     public Book mapToBook(Object[] row) {
         if (row == null || row.length < 13) {
             log.warn("Invalid row data: null or too short");
@@ -92,17 +91,41 @@ public class BookMapper {
         try {
             int idx = 0;
 
-            book.setId(convertToLong(row[idx++]));
-            book.setIsbn(convertToString(row[idx++]));
-            book.setTitle(convertToString(row[idx++]));
-            book.setDescription(convertToString(row[idx++]));
-            book.setPublicationYear(convertToInteger(row[idx++]));
-            book.setPrice(convertToBigDecimal(row[idx++]));
-            book.setAverageRating(convertToDouble(row[idx++]));
+            // Читаем основные поля с отдельным инкрементом
+            Long id = convertToLong(row[idx]);
+            idx++;
+            book.setId(id);
 
-            Long authorId = convertToLong(row[idx++]);
+            String isbn = convertToString(row[idx]);
+            idx++;
+            book.setIsbn(isbn);
+
+            String title = convertToString(row[idx]);
+            idx++;
+            book.setTitle(title);
+
+            String description = convertToString(row[idx]);
+            idx++;
+            book.setDescription(description);
+
+            Integer publicationYear = convertToInteger(row[idx]);
+            idx++;
+            book.setPublicationYear(publicationYear);
+
+            BigDecimal price = convertToBigDecimal(row[idx]);
+            idx++;
+            book.setPrice(price);
+
+            Double averageRating = convertToDouble(row[idx]);
+            idx++;
+            book.setAverageRating(averageRating);
+
+            // Читаем автора
+            Long authorId = convertToLong(row[idx]);
+            idx++;
             String authorName = convertToString(row[idx]);
-            idx++; // Инкрементируем после использования
+            idx++;
+
             if (authorId != null && authorName != null) {
                 Author author = new Author();
                 author.setId(authorId);
@@ -112,9 +135,12 @@ public class BookMapper {
                 book.setAuthors(authors);
             }
 
-            Long genreId = convertToLong(row[idx++]);
+            // Читаем жанр
+            Long genreId = convertToLong(row[idx]);
+            idx++;
             String genreName = convertToString(row[idx]);
-            idx++; // Инкрементируем после использования
+            idx++;
+
             if (genreId != null && genreName != null) {
                 Genre genre = new Genre();
                 genre.setId(genreId);
@@ -124,8 +150,12 @@ public class BookMapper {
                 book.setGenres(genres);
             }
 
-            Long publisherId = convertToLong(row[idx++]);
-            String publisherName = convertToString(row[idx++]);
+            // Читаем издателя
+            Long publisherId = convertToLong(row[idx]);
+            idx++;
+            String publisherName = convertToString(row[idx]);
+            idx++;
+
             if (publisherId != null && publisherName != null) {
                 Publisher publisher = new Publisher();
                 publisher.setId(publisherId);
@@ -225,5 +255,4 @@ public class BookMapper {
         }
         return value.toString();
     }
-
 }

@@ -161,19 +161,19 @@ class GenreServiceTest {
         genreDto.setName("Роман");
         genreDto.setDescription("Описание");
 
-        Genre newGenre = new Genre();  // Переименовали с 'genre' на 'newGenre'
+        Genre newGenre = new Genre();
         newGenre.setId(1L);
         newGenre.setName("Роман");
         newGenre.setDescription("Описание");
 
-        GenreDto responseDto = new GenreDto();
-        responseDto.setId(1L);
-        responseDto.setName("Роман");
-        responseDto.setDescription("Описание");
+        GenreDto expectedResponse = new GenreDto();  // Переименовали с 'responseDto' на 'expectedResponse'
+        expectedResponse.setId(1L);
+        expectedResponse.setName("Роман");
+        expectedResponse.setDescription("Описание");
 
         when(genreMapper.toEntity(genreDto)).thenReturn(newGenre);
         when(genreRepository.save(newGenre)).thenReturn(newGenre);
-        when(genreMapper.toDto(newGenre)).thenReturn(responseDto);
+        when(genreMapper.toDto(newGenre)).thenReturn(expectedResponse);
 
         GenreDto result = genreService.createGenre(genreDto);
 

@@ -82,17 +82,12 @@ class IndexServiceTest {
         List<BookResponseDto> result = indexService.getFromCache(criteria, null);
 
         // Проверка
-        assertThat(result).isNotNull();
-        assertThat(result).isSameAs(bookList);
-
-        // Проверка лога HIT
-        List<ILoggingEvent> logs = listAppender.list;
-        assertThat(logs).anyMatch(event ->
+        assertThat(result).isNotNull().isSameAs(bookList);
+        assertThat(listAppender.list).anyMatch(event ->
                 event.getFormattedMessage().contains("List Cache HIT for key:") &&
                         event.getLevel() == Level.INFO
         );
     }
-
     @Test
     void getFromCache_WithUnpagedPageable_ReturnsNullWhenCacheMiss() {
         // Выполнение - pageable.unpaged(), кеш пуст
