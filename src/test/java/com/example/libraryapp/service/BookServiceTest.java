@@ -1,5 +1,9 @@
 package com.example.libraryapp.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.example.libraryapp.api.dto.*;
 import com.example.libraryapp.api.mapper.BookMapper;
 import com.example.libraryapp.domain.*;
@@ -9,10 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -695,4 +697,102 @@ class BookServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getTitle()).isEqualTo("Test Book");
     }
+
+    // ============= ДОПОЛНИТЕЛЬНЫЕ ТЕСТЫ ДЛЯ 100% ПОКРЫТИЯ =============
+
+    @Test
+    void updateBook_WithSameIsbn_DoesNotCheckDuplicate() {
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn("978-3-16-148410-0");  // тот же ISBN что и у книги
+        updateDto.setTitle("Updated Book");
+        updateDto.setPublisherId(1L);
+        updateDto.setAuthorIds(Set.of(1L));
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        // Не должно быть вызова findByIsbn, так как ISBN не изменился
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
+        when(bookRepository.save(book)).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        BookResponseDto result = bookService.updateBook(1L, updateDto);
+
+        assertThat(result.getTitle()).isEqualTo("Test Book");
+        verify(bookRepository, never()).findByIsbn(anyString());
+    }
+
+    @Test
+    void createBookWithTempEntities_WithError_ThrowsException_WithoutTransaction() {
+        BookDto dto = new BookDto();
+        dto.setTitle("error test");
+        dto.setIsbn("978-3-16-148410-0");
+
+        when(publisherRepository.save(any())).thenReturn(publisher);
+        when(authorRepository.save(any())).thenReturn(author);
+        when(bookMapper.toEntity(dto)).thenReturn(book);
+
+        assertThatThrownBy(() -> bookService.createBookWithoutTransaction(dto))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Simulating error during save!");
+    }
+
+    @Test
+    void createBookWithTempEntities_WithError_ThrowsException_WithTransaction() {
+        BookDto dto = new BookDto();
+        dto.setTitle("error test");
+        dto.setIsbn("978-3-16-148410-0");
+
+        when(publisherRepository.save(any())).thenReturn(publisher);
+        when(authorRepository.save(any())).thenReturn(author);
+        when(bookMapper.toEntity(dto)).thenReturn(book);
+
+        assertThatThrownBy(() -> bookService.createBookWithTransaction(dto))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Simulating error during save - transaction will rollback!");
+    }
+
+    @Test
+    void setBookGenres_WithNullGenreIds_Skip() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-1");
+        dto.setTitle("Test Book");
+        dto.setPublisherId(1L);
+        dto.setAuthorIds(Set.of(1L));
+        dto.setGenreIds(null);  // null жанры
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
+        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);
+        when(bookRepository.save(book)).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        BookResponseDto result = bookService.createBook(dto);
+
+        assertThat(result).isNotNull();
+        verify(genreRepository, never()).findAllById(anySet());
+    }
+
+    @Test
+    void setBookGenres_WithEmptyGenreIds_Skip() {
+        BookDto dto = new BookDto();
+        dto.setIsbn("978-3-16-148410-1");
+        dto.setTitle("Test Book");
+        dto.setPublisherId(1L);
+        dto.setAuthorIds(Set.of(1L));
+        dto.setGenreIds(Set.of());  // пустой Set
+
+        when(bookRepository.findByIsbn(anyString())).thenReturn(Optional.empty());
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
+        when(bookMapper.toEntity(any(BookDto.class))).thenReturn(book);
+        when(bookRepository.save(book)).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        BookResponseDto result = bookService.createBook(dto);
+
+        assertThat(result).isNotNull();
+        verify(genreRepository, never()).findAllById(anySet());
+    }
+
 }
