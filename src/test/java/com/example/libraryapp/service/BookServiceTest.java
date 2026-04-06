@@ -85,7 +85,6 @@ class BookServiceTest {
         genre.setName("Test Genre");
     }
 
-    // ============= CREATE =============
 
     @Test
     void createBook_Success() {
@@ -165,7 +164,6 @@ class BookServiceTest {
                 .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
-    // ============= READ =============
 
     @Test
     void getBookById_Success() {
@@ -200,7 +198,6 @@ class BookServiceTest {
         assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Book");
     }
 
-    // ============= UPDATE =============
 
     @Test
     void updateBook_Success() {
@@ -276,7 +273,6 @@ class BookServiceTest {
                 .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
     }
 
-    // ============= DELETE =============
 
     @Test
     void deleteBook_Success() {
@@ -297,7 +293,6 @@ class BookServiceTest {
                 .hasFieldOrPropertyWithValue("status", HttpStatus.NOT_FOUND);
     }
 
-    // ============= BULK OPERATIONS =============
 
     @Test
     void bulkCreateBooks_Success() {
@@ -436,7 +431,6 @@ class BookServiceTest {
                 .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
     }
 
-    // ============= SEARCH METHODS =============
 
     @Test
     void searchBooks_Success() {
@@ -568,7 +562,6 @@ class BookServiceTest {
         verify(bookRepository, never()).findBooksByComplexCriteria(any(), any(), any(), any(), any(), any());
     }
 
-    // ============= NATIVE METHODS =============
 
     @Test
     void searchBooksNative_Success() {
@@ -649,7 +642,6 @@ class BookServiceTest {
         assertThat(result.getContent().get(0).getTitle()).isEqualTo("Test Book");
     }
 
-    // ============= DEMONSTRATION METHODS =============
 
     @Test
     void getAllBooksWithDetails_Success() {
@@ -704,18 +696,16 @@ class BookServiceTest {
         assertThat(result.getTitle()).isEqualTo("Test Book");
     }
 
-    // ============= ДОПОЛНИТЕЛЬНЫЕ ТЕСТЫ ДЛЯ 100% ПОКРЫТИЯ =============
 
     @Test
     void updateBook_WithSameIsbn_DoesNotCheckDuplicate() {
         BookDto updateDto = new BookDto();
-        updateDto.setIsbn("978-3-16-148410-0");  // тот же ISBN что и у книги
+        updateDto.setIsbn("978-3-16-148410-0");
         updateDto.setTitle("Updated Book");
         updateDto.setPublisherId(1L);
         updateDto.setAuthorIds(Set.of(1L));
 
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        // Не должно быть вызова findByIsbn, так как ISBN не изменился
         when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
         when(authorRepository.findAllById(anySet())).thenReturn(List.of(author));
         when(bookRepository.save(book)).thenReturn(book);
@@ -802,7 +792,6 @@ class BookServiceTest {
     }
 
 
-    // ← ЭТОТ ТЕСТ МОЖЕТ НЕ ХВАТАТЬ!
     @Test
     void createBookWithTransaction_NormalTitle_NoError() {
         BookDto dto = new BookDto();

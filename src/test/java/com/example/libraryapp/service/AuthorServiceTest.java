@@ -61,8 +61,6 @@ class AuthorServiceTest {
         responseDto.setBirthDate(LocalDate.of(1828, 9, 9));
     }
 
-    // ============= CREATE AUTHOR TESTS =============
-
     @Test
     void createAuthor_Success() {
         when(authorRepository.findByName(authorDto.getName())).thenReturn(Optional.empty());
@@ -110,7 +108,6 @@ class AuthorServiceTest {
         verify(authorRepository).save(author);
     }
 
-    // ============= GET ALL AUTHORS TESTS =============
 
     @Test
     void getAllAuthors_Success() {
@@ -163,9 +160,7 @@ class AuthorServiceTest {
         assertThat(result.get(1).getName()).isEqualTo("Фёдор Достоевский");
     }
 
-    // ============= GET AUTHOR BY ID TESTS =============
-
-    @Test
+        @Test
     void getAuthorById_Success() {
         when(authorRepository.findById(1L)).thenReturn(Optional.of(author));
         when(authorMapper.toDto(author)).thenReturn(responseDto);
@@ -192,9 +187,7 @@ class AuthorServiceTest {
         verify(authorMapper, never()).toDto(any());
     }
 
-    // ============= UPDATE AUTHOR TESTS =============
-
-    @Test
+        @Test
     void updateAuthor_Success() {
         AuthorDto updateDto = new AuthorDto();
         updateDto.setName("Лев Николаевич Толстой");
@@ -362,7 +355,6 @@ class AuthorServiceTest {
 
         authorService.updateAuthor(1L, updateDto);
 
-        // Name может быть установлен в null (зависит от логики)
         verify(authorSpy).setName(null);
         verify(authorSpy).setBiography("Обновленная биография");
         verify(authorSpy).setBirthDate(LocalDate.of(1828, 9, 9));
@@ -383,14 +375,11 @@ class AuthorServiceTest {
 
         authorService.updateAuthor(1L, updateDto);
 
-        // Сервис всегда устанавливает name (даже если null)
         verify(authorSpy).setName(null);
-        // Biography и BirthDate не устанавливаются, т.к. они null
         verify(authorSpy, never()).setBiography(any());
         verify(authorSpy, never()).setBirthDate(any());
     }
 
-    // ============= DELETE AUTHOR TESTS =============
 
     @Test
     void deleteAuthor_Success() {
@@ -415,7 +404,6 @@ class AuthorServiceTest {
         verify(authorRepository, never()).deleteById(any());
     }
 
-    // ============= SEARCH AUTHORS TESTS =============
 
     @Test
     void searchAuthorsByName_Success() {
@@ -472,7 +460,6 @@ class AuthorServiceTest {
         verify(authorRepository).searchByName("");
     }
 
-    // ============= EDGE CASES AND ADDITIONAL TESTS =============
 
     @Test
     void createAuthor_WithMinimalData_Success() {

@@ -55,16 +55,13 @@ class GenreServiceTest {
     void updateGenre_ParameterizedTest(String testName, GenreDto updateDto,
                                        String expectedName, String expectedDescription,
                                        boolean shouldSetName, boolean shouldSetDescription) {
-        // Given
         Genre genreSpy = spy(genre);
         when(genreRepository.findById(1L)).thenReturn(Optional.of(genreSpy));
         when(genreRepository.save(any(Genre.class))).thenReturn(genreSpy);
         when(genreMapper.toDto(any(Genre.class))).thenReturn(responseDto);
 
-        // When
         genreService.updateGenre(1L, updateDto);
 
-        // Then
         if (shouldSetName) {
             verify(genreSpy).setName(expectedName);
         } else {
@@ -138,7 +135,6 @@ class GenreServiceTest {
         return dto;
     }
 
-    // ============= ОСТАЛЬНЫЕ ТЕСТЫ =============
 
     @org.junit.jupiter.api.Test
     void updateGenre_NotFound_ThrowsEntityNotFound() {
@@ -166,7 +162,7 @@ class GenreServiceTest {
         newGenre.setName("Роман");
         newGenre.setDescription("Описание");
 
-        GenreDto expectedResponse = new GenreDto();  // Переименовали с 'responseDto' на 'expectedResponse'
+        GenreDto expectedResponse = new GenreDto();
         expectedResponse.setId(1L);
         expectedResponse.setName("Роман");
         expectedResponse.setDescription("Описание");

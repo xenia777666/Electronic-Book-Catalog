@@ -60,7 +60,6 @@ class PublisherServiceTest {
         responseDto.setEmail("info@eksmo.ru");
     }
 
-    // ============= CREATE PUBLISHER TESTS =============
 
     @Test
     void createPublisher_Success() {
@@ -315,7 +314,6 @@ class PublisherServiceTest {
         assertThat(result.get(2).getName()).isEqualTo("Питер");
     }
 
-    // ============= GET PUBLISHER BY ID TESTS =============
 
     @Test
     void getPublisherById_Success() {
@@ -356,7 +354,6 @@ class PublisherServiceTest {
                 .isInstanceOf(Exception.class);
     }
 
-    // ============= UPDATE PUBLISHER TESTS =============
 
     @Test
     void updatePublisher_Success() {
@@ -566,7 +563,6 @@ class PublisherServiceTest {
         assertThat(result.getName()).isEqualTo("Издательство №1 \"Лучшее\" & Co.");
     }
 
-    // ============= DELETE PUBLISHER TESTS =============
 
     @Test
     void deletePublisher_Success() {
@@ -603,7 +599,6 @@ class PublisherServiceTest {
                 .isInstanceOf(Exception.class);
     }
 
-    // ============= EDGE CASES AND ADDITIONAL TESTS =============
 
     @Test
     void createPublisher_WithMultiplePublishers_Success() {

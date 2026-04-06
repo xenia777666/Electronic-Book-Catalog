@@ -91,7 +91,6 @@ public class BookMapper {
         try {
             int idx = 0;
 
-            // Читаем основные поля с отдельным инкрементом
             Long id = convertToLong(row[idx]);
             idx++;
             book.setId(id);
@@ -120,7 +119,6 @@ public class BookMapper {
             idx++;
             book.setAverageRating(averageRating);
 
-            // Читаем автора
             Long authorId = convertToLong(row[idx]);
             idx++;
             String authorName = convertToString(row[idx]);
@@ -135,7 +133,6 @@ public class BookMapper {
                 book.setAuthors(authors);
             }
 
-            // Читаем жанр
             Long genreId = convertToLong(row[idx]);
             idx++;
             String genreName = convertToString(row[idx]);
@@ -150,7 +147,6 @@ public class BookMapper {
                 book.setGenres(genres);
             }
 
-            // Читаем издателя
             Long publisherId = convertToLong(row[idx]);
             idx++;
             String publisherName = convertToString(row[idx]);

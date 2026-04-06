@@ -70,7 +70,6 @@ class ReviewServiceTest {
         responseDto.setBookId(1L);
     }
 
-    // ============= CREATE REVIEW TESTS =============
 
     @Test
     void createReview_Success() {
@@ -258,7 +257,6 @@ class ReviewServiceTest {
         assertThat(result.getRating()).isEqualTo(5);
     }
 
-    // ============= GET ALL REVIEWS TESTS =============
 
     @Test
     void getAllReviews_Success() {
@@ -313,7 +311,6 @@ class ReviewServiceTest {
         assertThat(result.get(1).getReviewerName()).isEqualTo("Мария Сидорова");
     }
 
-    // ============= GET REVIEW BY ID TESTS =============
 
     @Test
     void getReviewById_Success() {
@@ -354,7 +351,6 @@ class ReviewServiceTest {
                 .isInstanceOf(Exception.class);
     }
 
-    // ============= GET REVIEWS BY BOOK ID TESTS =============
 
     @Test
     void getReviewsByBookId_Success() {
@@ -411,8 +407,7 @@ class ReviewServiceTest {
 
     @Test
     void getReviewsByBookId_WithNullBookId_DoesNotThrowException() {
-        // Метод getReviewsByBookId принимает Long, который может быть null
-        // Репозиторий вернет пустой список для null bookId
+
         when(reviewRepository.findByBookId(null)).thenReturn(Collections.emptyList());
 
         List<ReviewDto> result = reviewService.getReviewsByBookId(null);
@@ -421,7 +416,6 @@ class ReviewServiceTest {
         verify(reviewRepository).findByBookId(null);
     }
 
-    // ============= UPDATE REVIEW TESTS =============
 
     @Test
     void updateReview_Success() {
@@ -556,7 +550,6 @@ class ReviewServiceTest {
         verify(reviewRepository, never()).save(any());
     }
 
-    // ============= DELETE REVIEW TESTS =============
 
     @Test
     void deleteReview_Success() {
@@ -593,7 +586,6 @@ class ReviewServiceTest {
                 .isInstanceOf(Exception.class);
     }
 
-    // ============= EDGE CASES AND ADDITIONAL TESTS =============
 
     @Test
     void createReview_WithVeryLongComment_ShouldHandle() {

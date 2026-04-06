@@ -524,7 +524,6 @@ public class BookService {
                 })
                 .toList();
 
-        // Сохранение всех книг в одной транзакции
         List<Book> savedBooks = bookRepository.saveAll(booksToSave);
         result.setSuccessful(savedBooks.size());
         result.setFailed(0);

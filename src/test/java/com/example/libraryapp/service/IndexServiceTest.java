@@ -37,7 +37,6 @@ class IndexServiceTest {
     void setUp() {
         indexService = new IndexService();
 
-        // Настройка логгера для тестирования
         logger = (Logger) LoggerFactory.getLogger(IndexService.class);
         listAppender = new ListAppender<>();
         listAppender.start();
@@ -55,17 +54,12 @@ class IndexServiceTest {
         bookPage = new PageImpl<>(bookList);
     }
 
-    // ============= GET FROM CACHE TESTS - COVERING LINE 25 AND 37-50 =============
-
     @Test
     void getFromCache_WithNullPageable_ReturnsNullWhenCacheMiss() {
-        // Выполнение - pageable = null, кеш пуст
         List<BookResponseDto> result = indexService.getFromCache(criteria, null);
 
-        // Проверка
         assertThat(result).isNull();
 
-        // Проверка лога MISS
         List<ILoggingEvent> logs = listAppender.list;
         assertThat(logs).anyMatch(event ->
                 event.getFormattedMessage().contains("List Cache MISS for key:") &&
@@ -75,31 +69,26 @@ class IndexServiceTest {
 
     @Test
     void getFromCache_WithNullPageable_ReturnsValueWhenCacheHit() {
-        // Подготовка - кладем в кеш с pageable = null
         indexService.putInCache(criteria, null, bookList);
         listAppender.list.clear();
 
-        // Выполнение
         List<BookResponseDto> result = indexService.getFromCache(criteria, null);
 
-        // Проверка
         assertThat(result).isNotNull().isSameAs(bookList);
         assertThat(listAppender.list).anyMatch(event ->
                 event.getFormattedMessage().contains("List Cache HIT for key:") &&
                         event.getLevel() == Level.INFO
         );
     }
+
     @Test
     void getFromCache_WithUnpagedPageable_ReturnsValueWhenCacheHit() {
-        // Подготовка
         Pageable unpaged = Pageable.unpaged();
         indexService.putInCache(criteria, unpaged, bookList);
         listAppender.list.clear();
 
-        // Выполнение
         List<BookResponseDto> result = indexService.getFromCache(criteria, unpaged);
 
-        // Объединяем все assertions в один блок
         assertAll(
                 () -> assertThat(result).isNotNull(),
                 () -> assertThat(result).isSameAs(bookList),
@@ -112,14 +101,11 @@ class IndexServiceTest {
 
     @Test
     void getFromCache_WithPagedPageable_ReturnsNullWhenCacheMiss() {
-        // Выполнение - pageable с пагинацией, кеш пуст
         Pageable pageable = PageRequest.of(0, 10);
         List<BookResponseDto> result = indexService.getFromCache(criteria, pageable);
 
-        // Проверка
         assertThat(result).isNull();
 
-        // Проверка лога MISS
         List<ILoggingEvent> logs = listAppender.list;
         assertThat(logs).anyMatch(event ->
                 event.getFormattedMessage().contains("List Cache MISS for key:") &&
@@ -129,15 +115,12 @@ class IndexServiceTest {
 
     @Test
     void getFromCache_WithPagedPageable_ReturnsValueWhenCacheHit() {
-        // Подготовка - кладем в кеш с пагинацией
         Pageable pageable = PageRequest.of(0, 10);
         indexService.putInCache(criteria, pageable, bookList);
         listAppender.list.clear();
 
-        // Выполнение
         List<BookResponseDto> result = indexService.getFromCache(criteria, pageable);
 
-        // Проверка
         assertAll(
                 () -> assertThat(result).isNotNull().isSameAs(bookList),
                 () -> assertThat(listAppender.list).anyMatch(event ->
@@ -149,15 +132,12 @@ class IndexServiceTest {
 
     @Test
     void getFromCache_WithPagedPageableAndSort_ReturnsValueWhenCacheHit() {
-        // Подготовка - кладем в кеш с сортировкой
         Pageable pageable = PageRequest.of(1, 20, Sort.by("title").ascending());
         indexService.putInCache(criteria, pageable, bookList);
         listAppender.list.clear();
 
-        // Выполнение
         List<BookResponseDto> result = indexService.getFromCache(criteria, pageable);
 
-// Проверка
         assertAll(
                 () -> assertThat(result).isNotNull(),
                 () -> assertThat(result).isSameAs(bookList),
@@ -168,20 +148,14 @@ class IndexServiceTest {
         );
     }
 
-    // ============= PUT IN CACHE TESTS - COVERING LINES WITH PARTIAL COVERAGE =============
-
     @Test
     void putInCache_WithNullPageable_StoresAndLogs() {
-        // Подготовка
         listAppender.list.clear();
 
-        // Выполнение
         indexService.putInCache(criteria, null, bookList);
 
-        // Проверка - значение сохранено
         List<BookResponseDto> cached = indexService.getFromCache(criteria, null);
 
-        // Объединяем все проверки
         assertAll(
                 () -> assertThat(cached).isSameAs(bookList),
                 () -> assertThat(listAppender.list).anyMatch(event ->
@@ -193,18 +167,14 @@ class IndexServiceTest {
 
     @Test
     void putInCache_WithUnpagedPageable_StoresAndLogs() {
-        // Подготовка
         Pageable unpaged = Pageable.unpaged();
         listAppender.list.clear();
 
-        // Выполнение
         indexService.putInCache(criteria, unpaged, bookList);
 
-        // Проверка - значение сохранено
         List<BookResponseDto> cached = indexService.getFromCache(criteria, unpaged);
         assertThat(cached).isSameAs(bookList);
 
-        // Проверка лога
         List<ILoggingEvent> logs = listAppender.list;
         assertThat(logs).anyMatch(event ->
                 event.getFormattedMessage().contains("Cached List results for key:") &&
@@ -214,18 +184,14 @@ class IndexServiceTest {
 
     @Test
     void putInCache_WithPagedPageable_StoresAndLogs() {
-        // Подготовка
         Pageable pageable = PageRequest.of(0, 10);
         listAppender.list.clear();
 
-        // Выполнение
         indexService.putInCache(criteria, pageable, bookList);
 
-        // Проверка - значение сохранено
         List<BookResponseDto> cached = indexService.getFromCache(criteria, pageable);
         assertThat(cached).isSameAs(bookList);
 
-        // Проверка лога
         List<ILoggingEvent> logs = listAppender.list;
         assertThat(logs).anyMatch(event ->
                 event.getFormattedMessage().contains("Cached List results for key:") &&
@@ -235,7 +201,6 @@ class IndexServiceTest {
 
     @Test
     void putInCache_OverwritesExistingEntry() {
-        // Подготовка
         Pageable pageable = PageRequest.of(0, 10);
         List<BookResponseDto> firstList = List.of(bookDto);
 
@@ -244,28 +209,21 @@ class IndexServiceTest {
         secondBook.setTitle("Анна Каренина");
         List<BookResponseDto> secondList = List.of(secondBook);
 
-        // Выполнение
         indexService.putInCache(criteria, pageable, firstList);
         indexService.putInCache(criteria, pageable, secondList);
 
-        // Проверка
         List<BookResponseDto> cached = indexService.getFromCache(criteria, pageable);
         assertThat(cached).isSameAs(secondList);
         assertThat(cached.get(0).getTitle()).isEqualTo("Анна Каренина");
     }
 
-    // ============= GET PAGE FROM CACHE TESTS =============
-
     @Test
     void getPageFromCache_ReturnsNullWhenCacheMiss() {
-        // Выполнение
         Pageable pageable = PageRequest.of(0, 10);
         Page<BookResponseDto> result = indexService.getPageFromCache(criteria, pageable);
 
-        // Проверка
         assertThat(result).isNull();
 
-        // Проверка лога MISS
         List<ILoggingEvent> logs = listAppender.list;
         assertThat(logs).anyMatch(event ->
                 event.getFormattedMessage().contains("Page Cache MISS for key:") &&
@@ -275,15 +233,12 @@ class IndexServiceTest {
 
     @Test
     void getPageFromCache_ReturnsValueWhenCacheHit() {
-        // Подготовка
         Pageable pageable = PageRequest.of(0, 10);
         indexService.putPageInCache(criteria, pageable, bookPage);
         listAppender.list.clear();
 
-        // Выполнение
         Page<BookResponseDto> result = indexService.getPageFromCache(criteria, pageable);
 
-        // Проверка
         assertAll(
                 () -> assertThat(result).isNotNull().isSameAs(bookPage),
                 () -> assertThat(listAppender.list).anyMatch(event ->
@@ -293,18 +248,13 @@ class IndexServiceTest {
         );
     }
 
-    // ============= PUT PAGE IN CACHE TESTS =============
-
     @Test
     void putPageInCache_StoresAndLogs() {
-        // Подготовка
         Pageable pageable = PageRequest.of(0, 10);
         listAppender.list.clear();
 
-        // Выполнение
         indexService.putPageInCache(criteria, pageable, bookPage);
 
-        // Проверка
         Page<BookResponseDto> cached = indexService.getPageFromCache(criteria, pageable);
 
         assertAll(
@@ -316,23 +266,17 @@ class IndexServiceTest {
         );
     }
 
-    // ============= INVALIDATE CACHE TESTS =============
-
     @Test
     void invalidateCache_ClearsAllEntriesAndLogs() {
-        // Подготовка
         Pageable pageable = PageRequest.of(0, 10);
         indexService.putInCache(criteria, pageable, bookList);
         indexService.putPageInCache(criteria, pageable, bookPage);
         listAppender.list.clear();
 
-        // Выполнение
         indexService.invalidateCache();
 
-        // Проверка
         assertThat(indexService.getCacheSize()).isZero();
 
-        // Проверка лога
         List<ILoggingEvent> logs = listAppender.list;
         assertThat(logs).anyMatch(event ->
                 event.getFormattedMessage().contains("Cache invalidated. Cleared 1 list entries and 1 page entries.") &&
@@ -342,21 +286,16 @@ class IndexServiceTest {
 
     @Test
     void invalidateCache_OnEmptyCache_LogsZeroEntries() {
-        // Подготовка
         listAppender.list.clear();
 
-        // Выполнение
         indexService.invalidateCache();
 
-        // Проверка лога
         List<ILoggingEvent> logs = listAppender.list;
         assertThat(logs).anyMatch(event ->
                 event.getFormattedMessage().contains("Cache invalidated. Cleared 0 list entries and 0 page entries.") &&
                         event.getLevel() == Level.INFO
         );
     }
-
-    // ============= GET CACHE SIZE TESTS =============
 
     @Test
     void getCacheSize_EmptyCache_ReturnsZero() {
@@ -373,8 +312,6 @@ class IndexServiceTest {
 
         assertThat(indexService.getCacheSize()).isEqualTo(2);
     }
-
-    // ============= TESTS FOR CacheKey EQUALS METHOD USING REFLECTION =============
 
     @Test
     void cacheKey_Equals_SameObject_ReturnsTrue() throws Exception {
@@ -553,8 +490,6 @@ class IndexServiceTest {
         assertThat(result).isTrue();
     }
 
-    // ============= TESTS FOR CacheKey HASHCODE METHOD =============
-
     @Test
     void cacheKey_HashCode_EqualObjects_ReturnsSameHashCode() throws Exception {
         Class<?> cacheKeyClass = getCacheKeyClass();
@@ -576,7 +511,6 @@ class IndexServiceTest {
         assertThat(hashCode1).isEqualTo(hashCode2);
     }
 
-    // ============= HELPER METHODS =============
     private Class<?> getCacheKeyClass() throws Exception {
         return Class.forName("com.example.libraryapp.service.IndexService$CacheKey");
     }
