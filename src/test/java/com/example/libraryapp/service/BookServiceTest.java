@@ -289,7 +289,7 @@ class BookServiceTest {
 
     @Test
     void findBooksByAuthor_Success() {
-        when(bookRepository.findBooksByComplexCriteria(eq("Test Author"), eq(null), eq(null), eq(null), eq(null), eq(null)))
+        when(bookRepository.findBooksByComplexCriteria(("Test Author"), (null), (null), (null), (null), (null)))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
@@ -300,7 +300,7 @@ class BookServiceTest {
 
     @Test
     void findBooksByGenre_Success() {
-        when(bookRepository.findBooksByComplexCriteria(eq(null), eq("Test Genre"), eq(null), eq(null), eq(null), eq(null)))
+        when(bookRepository.findBooksByComplexCriteria((null), ("Test Genre"), (null), (null), (null), (null)))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
@@ -311,7 +311,7 @@ class BookServiceTest {
 
     @Test
     void findBooksByPriceRange_Success() {
-        when(bookRepository.findBooksByComplexCriteria(eq(null), eq(null), eq(null), eq(new BigDecimal("10")), eq(new BigDecimal("100")), eq(null)))
+        when(bookRepository.findBooksByComplexCriteria((null), (null), (null), (new BigDecimal("10")), (new BigDecimal("100")), (null)))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
@@ -322,7 +322,7 @@ class BookServiceTest {
     @Test
     void searchBooks_Success() {
         BookSearchCriteria criteria = new BookSearchCriteria("Test", null, null, null, null, null);
-        when(bookRepository.findBooksByComplexCriteria(eq("Test"), eq(null), eq(null), eq(null), eq(null), eq(null)))
+        when(bookRepository.findBooksByComplexCriteria(("Test"), (null), (null), (null), (null), (null)))
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
