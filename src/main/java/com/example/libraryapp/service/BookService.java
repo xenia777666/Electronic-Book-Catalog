@@ -28,12 +28,14 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BookService {
+
+    private static final String BOOK_CREATED_SUCCESSFULLY = "Book created successfully";
 
     private final BookRepository bookRepository;
     private final PublisherRepository publisherRepository;
@@ -116,38 +118,38 @@ public class BookService {
         log.info("Getting all books with details (using JOIN FETCH)");
         return bookRepository.findAllWithDetails().stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<BookResponseDto> getAllBooksWithNPlus1Problem() {
         log.warn("DEMONSTRATING N+1 PROBLEM");
         return bookRepository.findAll().stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<BookResponseDto> findBooksByAuthor(String authorName) {
         log.debug("Searching books by author: {}", authorName);
         return bookRepository.findBooksByComplexCriteria(authorName, null, null, null, null, null).stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<BookResponseDto> findBooksByGenre(String genreName) {
         log.debug("Searching books by genre: {}", genreName);
         return bookRepository.findBooksByComplexCriteria(null, genreName, null, null, null, null).stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<BookResponseDto> findBooksByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
         log.debug("Searching books by price range: {} - {}", minPrice, maxPrice);
         return bookRepository.findBooksByComplexCriteria(null, null, null, minPrice, maxPrice, null).stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    public List<BookResponseDto> searchBooks(BookSearchCriteria criteria, Pageable pageable) {
+    public List<BookResponseDto> searchBooks(BookSearchCriteria criteria) {
         log.info("JPQL search: {}", criteria);
         return bookRepository.findBooksByComplexCriteria(
                         criteria.getAuthorName(),
@@ -157,7 +159,7 @@ public class BookService {
                         criteria.getMaxPrice(),
                         criteria.getMinRating()).stream()
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Page<BookResponseDto> searchBooksWithPagination(BookSearchCriteria criteria, Pageable pageable) {
@@ -186,7 +188,7 @@ public class BookService {
                         criteria.getMinRating()).stream()
                 .map(bookMapper::mapToBook)
                 .map(bookMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Page<BookResponseDto> searchBooksNativeWithPagination(BookSearchCriteria criteria, Pageable pageable) {
@@ -277,7 +279,7 @@ public class BookService {
                 setBookRelations(book, dto);
                 bookRepository.save(book);
                 results.add(new BulkCreateResultDto.BookResult(
-                        dto.getIsbn(), true, "Book created successfully", null));
+                        dto.getIsbn(), true, BOOK_CREATED_SUCCESSFULLY, null));
             }
             result.setResults(results);
             result.setTotalSuccess(results.size());
@@ -317,7 +319,7 @@ public class BookService {
                 setBookRelations(book, dto);
                 bookRepository.save(book);
                 results.add(new BulkCreateResultDto.BookResult(
-                        dto.getIsbn(), true, "Book created successfully", null));
+                        dto.getIsbn(), true, BOOK_CREATED_SUCCESSFULLY, null));
                 successCount++;
                 log.info("Book saved: {}", book.getTitle());
 
@@ -381,7 +383,7 @@ public class BookService {
                 setBookRelations(book, dto);
                 bookRepository.save(book);
                 results.add(new BulkCreateResultDto.BookResult(
-                        dto.getIsbn(), true, "Book created successfully", null));
+                        dto.getIsbn(), true, BOOK_CREATED_SUCCESSFULLY, null));
             }
             result.setResults(results);
             result.setTotalSuccess(results.size());

@@ -95,7 +95,8 @@ public class BookController {
                 author, genre, publisher, minPrice, maxPrice, minRating
         );
 
-        List<BookResponseDto> books = bookService.searchBooks(criteria, pageable);
+        // Исправлено: убираем pageable, так как метод searchBooks больше не принимает этот параметр
+        List<BookResponseDto> books = bookService.searchBooks(criteria);
         return ResponseEntity.ok(books);
     }
 
@@ -275,7 +276,6 @@ public class BookController {
         return ResponseEntity.status(HttpStatus.CREATED).body(book);
     }
 
-
     @Operation(summary = "Массовое создание книг (с транзакцией)")
     @ApiResponse(responseCode = "200", description = "Операция выполнена")
     @PostMapping("/bulk")
@@ -305,5 +305,4 @@ public class BookController {
         BulkCreateResultDto result = bookService.bulkCreateBooksWithTransaction(booksDto);
         return ResponseEntity.ok(result);
     }
-
 }

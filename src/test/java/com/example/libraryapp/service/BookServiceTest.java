@@ -319,7 +319,6 @@ class BookServiceTest {
 
         assertThat(result).hasSize(1);
     }
-
     @Test
     void searchBooks_Success() {
         BookSearchCriteria criteria = new BookSearchCriteria("Test", null, null, null, null, null);
@@ -327,7 +326,8 @@ class BookServiceTest {
                 .thenReturn(List.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
-        List<BookResponseDto> result = bookService.searchBooks(criteria, pageable);
+        // Исправлено: убираем pageable
+        List<BookResponseDto> result = bookService.searchBooks(criteria);
 
         assertThat(result).hasSize(1);
     }
