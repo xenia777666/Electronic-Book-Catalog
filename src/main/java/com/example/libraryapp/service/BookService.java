@@ -7,29 +7,28 @@ import com.example.libraryapp.api.dto.BulkCreateResultDto;
 import com.example.libraryapp.api.mapper.BookMapper;
 import com.example.libraryapp.domain.Author;
 import com.example.libraryapp.domain.Book;
-import com.example.libraryapp.domain.Genre;
 import com.example.libraryapp.domain.Publisher;
 import com.example.libraryapp.repository.AuthorRepository;
 import com.example.libraryapp.repository.BookRepository;
-import com.example.libraryapp.repository.GenreRepository;
-import java.util.ArrayList;
 import com.example.libraryapp.repository.PublisherRepository;
-import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.data.domain.PageImpl;
+
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,253 +36,27 @@ import java.util.function.Function;
 public class BookService {
 
     private final BookRepository bookRepository;
-    private final AuthorRepository authorRepository;
     private final PublisherRepository publisherRepository;
-    private final GenreRepository genreRepository;
+    private final AuthorRepository authorRepository;
     private final BookMapper bookMapper;
-    private final IndexService indexService;
-
-
-    private void setBookPublisher(Book book, Long publisherId) {
-        Publisher publisher = publisherRepository.findById(publisherId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Publisher not found with id: " + publisherId));
-        book.setPublisher(publisher);
-    }
-
-    private void setBookAuthors(Book book, Set<Long> authorIds) {
-        Set<Author> authors = new HashSet<>(authorRepository.findAllById(authorIds));
-        if (authors.size() != authorIds.size()) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Some authors not found for ids: " + authorIds);
-        }
-        book.setAuthors(authors);
-    }
-
-    private void setBookGenres(Book book, Set<Long> genreIds) {
-        if (genreIds != null && !genreIds.isEmpty()) {
-            Set<Genre> genres = new HashSet<>(genreRepository.findAllById(genreIds));
-            if (genres.size() != genreIds.size()) {
-                throw new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Some genres not found for ids: " + genreIds);
-            }
-            book.setGenres(genres);
-        }
-    }
-
-    private void invalidateCacheAndLog() {
-        indexService.invalidateCache();
-    }
-
-    private Book createBookEntity(BookDto bookDto) {
-        Book book = bookMapper.toEntity(bookDto);
-        setBookPublisher(book, bookDto.getPublisherId());
-        setBookAuthors(book, bookDto.getAuthorIds());
-        setBookGenres(book, bookDto.getGenreIds());
-        return book;
-    }
-
-    private Book createBookWithTempEntities(BookDto bookDto, boolean withTransaction) {
-        Publisher tempPublisher = new Publisher();
-        tempPublisher.setName("TEMP_" + System.currentTimeMillis());
-        tempPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved: {}", tempPublisher.getId());
-
-        Author tempAuthor = new Author();
-        tempAuthor.setName("TEMP_AUTHOR_" + System.currentTimeMillis());
-        tempAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved: {}", tempAuthor.getId());
-
-        Book book = bookMapper.toEntity(bookDto);
-        book.setPublisher(tempPublisher);
-        book.getAuthors().add(tempAuthor);
-
-        if (bookDto.getTitle() != null && bookDto.getTitle().contains("error")) {
-            String errorMsg = withTransaction
-                    ? "Simulating error during save - transaction will rollback!"
-                    : "Simulating error during save!";
-            log.error(errorMsg);
-            throw new IllegalStateException(errorMsg);
-        }
-
-        return bookRepository.save(book);
-    }
-
-
-    private List<BookResponseDto> executeAndCache(
-            BookSearchCriteria criteria,
-            Pageable pageable,
-            Function<BookSearchCriteria, List<Book>> queryExecutor) {
-
-        List<BookResponseDto> cached = indexService.getFromCache(criteria, pageable);
-        if (cached != null) {
-            return cached;
-        }
-
-        List<Book> books = queryExecutor.apply(criteria);
-        List<BookResponseDto> results = books.stream()
-                .map(bookMapper::toDto)
-                .toList();
-
-        indexService.putInCache(criteria, pageable, results);
-        return results;
-    }
-
-    private Page<BookResponseDto> executeAndCachePage(
-            BookSearchCriteria criteria,
-            Pageable pageable,
-            Function<BookSearchCriteria, Page<Book>> queryExecutor) {
-
-
-        Page<BookResponseDto> cached = indexService.getPageFromCache(criteria, pageable);
-        if (cached != null) {
-            log.info("Page cache HIT for key: {}-{}-{}",
-                    criteria.getCacheKey(),
-                    pageable.getPageNumber(),
-                    pageable.getPageSize());
-            return cached;
-        }
-
-        log.info("Page cache MISS for key: {}-{}-{}",
-                criteria.getCacheKey(),
-                pageable.getPageNumber(),
-                pageable.getPageSize());
-
-        Page<Book> page = queryExecutor.apply(criteria);
-        Page<BookResponseDto> result = page.map(bookMapper::toDto);
-
-        indexService.putPageInCache(criteria, pageable, result);
-
-        return result;
-    }
-
-    public List<BookResponseDto> searchBooks(BookSearchCriteria criteria, Pageable pageable) {
-        log.info("JPQL search: {}", criteria);
-        return executeAndCache(criteria, pageable,
-                c -> bookRepository.findBooksByComplexCriteria(
-                        c.getAuthorName(),
-                        c.getGenreName(),
-                        c.getPublisherName(),
-                        c.getMinPrice(),
-                        c.getMaxPrice(),
-                        c.getMinRating()));
-    }
-
-    public Page<BookResponseDto> searchBooksWithPagination(BookSearchCriteria criteria, Pageable pageable) {
-        log.info("JPQL search with pagination: {}, page: {}, size: {}",
-                criteria, pageable.getPageNumber(), pageable.getPageSize());
-
-        return executeAndCachePage(criteria, pageable,
-                c -> bookRepository.findBooksByComplexCriteriaWithPagination(
-                        c.getAuthorName(),
-                        c.getGenreName(),
-                        c.getPublisherName(),
-                        c.getMinPrice(),
-                        c.getMaxPrice(),
-                        c.getMinRating(),
-                        pageable));
-    }
-
-
-    public List<BookResponseDto> searchBooksNative(BookSearchCriteria criteria) {
-        log.info("Native search: {}", criteria);
-
-        List<BookResponseDto> cached = indexService.getFromCache(criteria, Pageable.unpaged());
-        if (cached != null) {
-            return cached;
-        }
-
-        List<Object[]> rows = bookRepository.findBooksByComplexCriteriaNative(
-                criteria.getAuthorName(),
-                criteria.getGenreName(),
-                criteria.getPublisherName(),
-                criteria.getMinPrice(),
-                criteria.getMaxPrice(),
-                criteria.getMinRating());
-
-        List<BookResponseDto> results = rows.stream()
-                .map(bookMapper::mapToBook)
-                .map(bookMapper::toDto)
-                .toList();
-
-        indexService.putInCache(criteria, Pageable.unpaged(), results);
-
-        return results;
-    }
-
-    public Page<BookResponseDto> searchBooksNativeWithPagination(
-            BookSearchCriteria criteria, Pageable pageable) {
-        log.info("Native search with pagination: {}, page: {}, size: {}",
-                criteria, pageable.getPageNumber(), pageable.getPageSize());
-
-        Page<Object[]> page = bookRepository.findBooksByComplexCriteriaNativeWithPagination(
-                criteria.getAuthorName(),
-                criteria.getGenreName(),
-                criteria.getPublisherName(),
-                criteria.getMinPrice(),
-                criteria.getMaxPrice(),
-                criteria.getMinRating(),
-                pageable);
-
-        List<BookResponseDto> content = page.getContent().stream()
-                .map(bookMapper::mapToBook)
-                .map(bookMapper::toDto)
-                .toList();
-
-        return new PageImpl<>(content, pageable, page.getTotalElements());
-    }
-
-
-    public List<BookResponseDto> findBooksByAuthor(String authorName) {
-        log.debug("Searching books by author: {}", authorName);
-        BookSearchCriteria criteria = new BookSearchCriteria();
-        criteria.setAuthorName(authorName);
-        return searchBooks(criteria, Pageable.ofSize(20));
-    }
-
-    public List<BookResponseDto> findBooksByGenre(String genreName) {
-        log.debug("Searching books by genre: {}", genreName);
-        BookSearchCriteria criteria = new BookSearchCriteria();
-        criteria.setGenreName(genreName);
-        return searchBooks(criteria, Pageable.ofSize(20));
-    }
-
-    public List<BookResponseDto> findBooksByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
-        log.debug("Searching books by price range: {} - {}", minPrice, maxPrice);
-        BookSearchCriteria criteria = new BookSearchCriteria();
-        criteria.setMinPrice(minPrice);
-        criteria.setMaxPrice(maxPrice);
-        return searchBooks(criteria, Pageable.ofSize(20));
-    }
-
 
     @Transactional
     public BookResponseDto createBook(BookDto bookDto) {
         log.info("Creating new book: {}", bookDto.getTitle());
 
-        // Проверка на дубликат ISBN
         if (bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Книга с ISBN " + bookDto.getIsbn() + " уже существует");
+                    "Book with ISBN " + bookDto.getIsbn() + " already exists"
+            );
         }
 
-        Book book = createBookEntity(bookDto);
-        invalidateCacheAndLog();
+        Book book = bookMapper.toEntity(bookDto);
+        setBookRelations(book, bookDto);
 
-        try {
-            Book savedBook = bookRepository.save(book);
-            log.info("Book created successfully with id: {}", savedBook.getId());
-            return bookMapper.toDto(savedBook);
-        } catch (DataIntegrityViolationException e) {
-            log.error("Data integrity violation while creating book: {}", e.getMessage());
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Не удалось создать книгу. Возможно, ISBN уже существует.");
-        }
+        Book savedBook = bookRepository.save(book);
+        log.info("Book created successfully with id: {}", savedBook.getId());
+        return bookMapper.toDto(savedBook);
     }
 
     public Page<BookResponseDto> getAllBooks(Pageable pageable) {
@@ -294,25 +67,24 @@ public class BookService {
     public BookResponseDto getBookById(Long id) {
         log.debug("Getting book by id: {}", id);
         Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Book not found with id: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Book not found with id: " + id));
         return bookMapper.toDto(book);
     }
 
     @Transactional
     public BookResponseDto updateBook(Long id, BookDto bookDto) {
         log.info("Updating book with id: {}", id);
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Book not found with id: " + id));
 
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Book not found with id: " + id));
+
+        // Проверка ISBN ДО setBookRelations
         if (!book.getIsbn().equals(bookDto.getIsbn())
                 && bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Книга с ISBN " + bookDto.getIsbn() + " уже существует");
+                    "Book with ISBN " + bookDto.getIsbn() + " already exists"
+            );
         }
 
         book.setIsbn(bookDto.getIsbn());
@@ -321,218 +93,324 @@ public class BookService {
         book.setPublicationYear(bookDto.getPublicationYear());
         book.setPrice(bookDto.getPrice());
 
-        setBookPublisher(book, bookDto.getPublisherId());
-        setBookAuthors(book, bookDto.getAuthorIds());
-        setBookGenres(book, bookDto.getGenreIds());
+        setBookRelations(book, bookDto);
 
-        invalidateCacheAndLog();
-
-        try {
-            Book updatedBook = bookRepository.save(book);
-            log.info("Book updated successfully");
-            return bookMapper.toDto(updatedBook);
-        } catch (DataIntegrityViolationException e) {
-            log.error("Data integrity violation while updating book: {}", e.getMessage());
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Не удалось обновить книгу. Возможно, ISBN уже используется.");
-        }
+        Book updatedBook = bookRepository.save(book);
+        log.info("Book updated successfully");
+        return bookMapper.toDto(updatedBook);
     }
 
     @Transactional
     public void deleteBook(Long id) {
         log.info("Deleting book with id: {}", id);
+
         if (!bookRepository.existsById(id)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Book not found with id: " + id);
+            throw new EntityNotFoundException("Book not found with id: " + id);
         }
         bookRepository.deleteById(id);
-        invalidateCacheAndLog();
         log.info("Book deleted successfully");
     }
 
+    @Cacheable(value = "booksWithDetails", unless = "#result.isEmpty()")
     public List<BookResponseDto> getAllBooksWithDetails() {
-        log.info("Getting all books with details");
-        return bookRepository.findAllWithDetails()
-                .stream()
+        log.info("Getting all books with details (using JOIN FETCH)");
+        return bookRepository.findAllWithDetails().stream()
                 .map(bookMapper::toDto)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     public List<BookResponseDto> getAllBooksWithNPlus1Problem() {
         log.warn("DEMONSTRATING N+1 PROBLEM");
-        List<Book> books = bookRepository.findAll();
-
-        for (Book book : books) {
-            int authorsCount = book.getAuthors().size();
-            int genresCount = book.getGenres().size();
-            log.debug("Book {}: {} authors, {} genres", book.getId(), authorsCount, genresCount);
-        }
-
-        return books.stream()
+        return bookRepository.findAll().stream()
                 .map(bookMapper::toDto)
-                .toList();
+                .collect(Collectors.toList());
+    }
+
+    public List<BookResponseDto> findBooksByAuthor(String authorName) {
+        log.debug("Searching books by author: {}", authorName);
+        return bookRepository.findBooksByComplexCriteria(authorName, null, null, null, null, null).stream()
+                .map(bookMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public List<BookResponseDto> findBooksByGenre(String genreName) {
+        log.debug("Searching books by genre: {}", genreName);
+        return bookRepository.findBooksByComplexCriteria(null, genreName, null, null, null, null).stream()
+                .map(bookMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public List<BookResponseDto> findBooksByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
+        log.debug("Searching books by price range: {} - {}", minPrice, maxPrice);
+        return bookRepository.findBooksByComplexCriteria(null, null, null, minPrice, maxPrice, null).stream()
+                .map(bookMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public List<BookResponseDto> searchBooks(BookSearchCriteria criteria, Pageable pageable) {
+        log.info("JPQL search: {}", criteria);
+        return bookRepository.findBooksByComplexCriteria(
+                        criteria.getAuthorName(),
+                        criteria.getGenreName(),
+                        criteria.getPublisherName(),
+                        criteria.getMinPrice(),
+                        criteria.getMaxPrice(),
+                        criteria.getMinRating()).stream()
+                .map(bookMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public Page<BookResponseDto> searchBooksWithPagination(BookSearchCriteria criteria, Pageable pageable) {
+        log.info(
+                "JPQL search with pagination: {}, page: {}, size: {}",
+                criteria, pageable.getPageNumber(), pageable.getPageSize()
+        );
+        return bookRepository.findBooksByComplexCriteriaWithPagination(
+                criteria.getAuthorName(),
+                criteria.getGenreName(),
+                criteria.getPublisherName(),
+                criteria.getMinPrice(),
+                criteria.getMaxPrice(),
+                criteria.getMinRating(),
+                pageable).map(bookMapper::toDto);
+    }
+
+    public List<BookResponseDto> searchBooksNative(BookSearchCriteria criteria) {
+        log.info("Native search: {}", criteria);
+        return bookRepository.findBooksByComplexCriteriaNative(
+                        criteria.getAuthorName(),
+                        criteria.getGenreName(),
+                        criteria.getPublisherName(),
+                        criteria.getMinPrice(),
+                        criteria.getMaxPrice(),
+                        criteria.getMinRating()).stream()
+                .map(bookMapper::mapToBook)
+                .map(bookMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public Page<BookResponseDto> searchBooksNativeWithPagination(BookSearchCriteria criteria, Pageable pageable) {
+        log.info(
+                "Native search with pagination: {}, page: {}, size: {}",
+                criteria, pageable.getPageNumber(), pageable.getPageSize()
+        );
+        return bookRepository.findBooksByComplexCriteriaNativeWithPagination(
+                        criteria.getAuthorName(),
+                        criteria.getGenreName(),
+                        criteria.getPublisherName(),
+                        criteria.getMinPrice(),
+                        criteria.getMaxPrice(),
+                        criteria.getMinRating(),
+                        pageable)
+                .map(bookMapper::mapToBook)
+                .map(bookMapper::toDto);
     }
 
     public Book createBookWithoutTransaction(BookDto bookDto) {
-        log.warn("DEMONSTRATING PARTIAL SAVE WITHOUT @Transactional");
-        return createBookWithTempEntities(bookDto, false);
+        log.info("DEMONSTRATING SAVE WITHOUT @Transactional");
+        Book book = bookMapper.toEntity(bookDto);
+        Publisher tempPublisher = new Publisher();
+        tempPublisher.setName("Temp Publisher " + System.currentTimeMillis());
+        Publisher savedPublisher = publisherRepository.save(tempPublisher);
+        log.info("Temporary publisher saved: {}", savedPublisher.getId());
+
+        Author tempAuthor = new Author();
+        tempAuthor.setName("Temp Author " + System.currentTimeMillis());
+        Author savedAuthor = authorRepository.save(tempAuthor);
+        log.info("Temporary author saved: {}", savedAuthor.getId());
+
+        book.setPublisher(savedPublisher);
+        book.setAuthors(Set.of(savedAuthor));
+
+        if (bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Book with ISBN " + bookDto.getIsbn() + " already exists"
+            );
+        }
+
+        return bookRepository.save(book);
     }
 
     @Transactional
     public Book createBookWithTransaction(BookDto bookDto) {
         log.info("DEMONSTRATING ATOMIC SAVE WITH @Transactional");
-        return createBookWithTempEntities(bookDto, true);
+        Book book = bookMapper.toEntity(bookDto);
+        Publisher tempPublisher = new Publisher();
+        tempPublisher.setName("Temp Publisher " + System.currentTimeMillis());
+        Publisher savedPublisher = publisherRepository.save(tempPublisher);
+        log.info("Temporary publisher saved: {}", savedPublisher.getId());
+
+        Author tempAuthor = new Author();
+        tempAuthor.setName("Temp Author " + System.currentTimeMillis());
+        Author savedAuthor = authorRepository.save(tempAuthor);
+        log.info("Temporary author saved: {}", savedAuthor.getId());
+
+        book.setPublisher(savedPublisher);
+        book.setAuthors(Set.of(savedAuthor));
+
+        if (bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Book with ISBN " + bookDto.getIsbn() + " already exists"
+            );
+        }
+
+        return bookRepository.save(book);
     }
-
-
 
     @Transactional
     public BulkCreateResultDto bulkCreateBooks(List<BookDto> booksDto) {
         log.info("Bulk creating {} books WITH transaction", booksDto.size());
-
         BulkCreateResultDto result = new BulkCreateResultDto();
-        result.setTotalRequested(booksDto.size());
+        List<BulkCreateResultDto.BookResult> results = new ArrayList<>();
 
-        List<Book> booksToSave = booksDto.stream()
-                .map(this::prepareBookEntity)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .toList();
-
-        int successful = booksToSave.size();
-        int failed = booksDto.size() - successful;
-
-        result.setSuccessful(successful);
-        result.setFailed(failed);
-
-        if (!booksToSave.isEmpty()) {
-            List<Book> savedBooks = bookRepository.saveAll(booksToSave);
-            result.setCreatedBooks(savedBooks.stream()
-                    .map(bookMapper::toDto)
-                    .toList());
-        }
-
-
-        for (int i = 0; i < booksDto.size(); i++) {
-            BookDto dto = booksDto.get(i);
-            if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
-                result.getErrors().add("Книга с ISBN " + dto.getIsbn() + " уже существует");
-            }
-        }
-
-        indexService.invalidateCache();
-        log.info("Bulk create completed: {} successful, {} failed", successful, failed);
-        return result;
-    }
-
-    private Optional<Book> prepareBookEntity(BookDto dto) {
         try {
-
-            if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
-                log.warn("Book with ISBN {} already exists", dto.getIsbn());
-                return Optional.empty();
+            for (BookDto dto : booksDto) {
+                if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Book with ISBN " + dto.getIsbn() + " already exists"
+                    );
+                }
+                Book book = bookMapper.toEntity(dto);
+                setBookRelations(book, dto);
+                bookRepository.save(book);
+                results.add(new BulkCreateResultDto.BookResult(
+                        dto.getIsbn(), true, "Book created successfully", null));
             }
-
-            Book book = bookMapper.toEntity(dto);
-            setBookPublisher(book, dto.getPublisherId());
-            setBookAuthors(book, dto.getAuthorIds());
-            setBookGenres(book, dto.getGenreIds());
-            return Optional.of(book);
+            result.setResults(results);
+            result.setTotalSuccess(results.size());
+            result.setTotalFailed(0);
+            result.setMessage(String.format("Successfully created %d books", results.size()));
+            log.info("Bulk create WITH transaction: {} books saved atomically", results.size());
+            return result;
         } catch (Exception e) {
-            log.error("Error preparing book entity: {}", e.getMessage());
-            return Optional.empty();
+            log.error("Error in transactional bulk create - rolling back everything: {}", e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Transaction rolled back: " + e.getMessage(), e);
         }
     }
-
-
 
     public BulkCreateResultDto bulkCreateBooksWithoutTransaction(List<BookDto> booksDto) {
-        log.warn("DEMONSTRATING BULK CREATE WITHOUT @Transactional");
-
+        log.info("Bulk creating {} books WITHOUT transaction", booksDto.size());
         BulkCreateResultDto result = new BulkCreateResultDto();
-        result.setTotalRequested(booksDto.size());
-
-        List<BookResponseDto> createdBooks = new ArrayList<>();
+        List<BulkCreateResultDto.BookResult> results = new ArrayList<>();
+        int successCount = 0;
+        int failedCount = 0;
         List<String> errors = new ArrayList<>();
 
         for (BookDto dto : booksDto) {
             try {
-
                 if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
-                    errors.add("Книга с ISBN " + dto.getIsbn() + " уже существует");
+                    String error = "Book with ISBN " + dto.getIsbn() + " already exists";
+                    errors.add(error);
+                    results.add(new BulkCreateResultDto.BookResult(
+                            dto.getIsbn(), false, null, error));
+                    failedCount++;
+                    log.warn("Duplicate ISBN found: {}", dto.getIsbn());
                     continue;
                 }
 
-
                 Book book = bookMapper.toEntity(dto);
-                setBookPublisher(book, dto.getPublisherId());
-                setBookAuthors(book, dto.getAuthorIds());
-                setBookGenres(book, dto.getGenreIds());
+                setBookRelations(book, dto);
+                bookRepository.save(book);
+                results.add(new BulkCreateResultDto.BookResult(
+                        dto.getIsbn(), true, "Book created successfully", null));
+                successCount++;
+                log.info("Book saved: {}", book.getTitle());
 
-                Book savedBook = bookRepository.save(book);
-                createdBooks.add(bookMapper.toDto(savedBook));
-
+            } catch (DataIntegrityViolationException e) {
+                String error = "Data integrity violation for ISBN " + dto.getIsbn() + ": " + e.getMessage();
+                errors.add(error);
+                results.add(new BulkCreateResultDto.BookResult(
+                        dto.getIsbn(), false, null, error));
+                failedCount++;
+                log.error("Data integrity error for ISBN {}: {}", dto.getIsbn(), e.getMessage());
+            } catch (EntityNotFoundException e) {
+                String error = "Entity not found: " + e.getMessage();
+                errors.add(error);
+                results.add(new BulkCreateResultDto.BookResult(
+                        dto.getIsbn(), false, null, error));
+                failedCount++;
+                log.error("Entity not found for ISBN {}: {}", dto.getIsbn(), e.getMessage());
             } catch (Exception e) {
-                errors.add("Ошибка при создании книги '" + dto.getTitle() + "': " + e.getMessage());
-                log.error("Error creating book: {}", dto.getTitle(), e);
+                String error = "Error creating book: " + e.getMessage();
+                errors.add(error);
+                results.add(new BulkCreateResultDto.BookResult(
+                        dto.getIsbn(), false, null, error));
+                failedCount++;
+                log.error("Unexpected error for ISBN {}: {}", dto.getIsbn(), e.getMessage(), e);
             }
         }
 
-        result.setSuccessful(createdBooks.size());
-        result.setFailed(booksDto.size() - createdBooks.size());
-        result.setCreatedBooks(createdBooks);
-        result.setErrors(errors);
+        result.setResults(results);
+        result.setTotalSuccess(successCount);
+        result.setTotalFailed(failedCount);
 
-        indexService.invalidateCache();
-        log.info("Bulk create WITHOUT transaction: {} successful, {} failed",
-                createdBooks.size(), booksDto.size() - createdBooks.size());
+        if (failedCount > 0) {
+            String message = String.format(
+                    "Partial success: %d saved, %d failed. Errors: %s",
+                    successCount, failedCount, String.join("; ", errors));
+            result.setMessage(message);
+            log.warn("Bulk create completed with partial success: {} saved, {} failed", successCount, failedCount);
+            throw new ResponseStatusException(HttpStatus.CONFLICT, message);
+        }
+
+        result.setMessage(String.format("Successfully created %d books", successCount));
+        log.info("Bulk create WITHOUT transaction: {} successful, {} failed", successCount, failedCount);
         return result;
     }
 
-
-
     @Transactional
     public BulkCreateResultDto bulkCreateBooksWithTransaction(List<BookDto> booksDto) {
-        log.info("DEMONSTRATING BULK CREATE WITH @Transactional");
-
+        log.info("Bulk creating {} books WITH transaction (atomic)", booksDto.size());
         BulkCreateResultDto result = new BulkCreateResultDto();
-        result.setTotalRequested(booksDto.size());
+        List<BulkCreateResultDto.BookResult> results = new ArrayList<>();
 
-        List<BookDto> invalidBooks = booksDto.stream()
-                .filter(dto -> bookRepository.findByIsbn(dto.getIsbn()).isPresent())
-                .toList();
-
-        if (!invalidBooks.isEmpty()) {
-            String duplicateIsbns = invalidBooks.stream()
-                    .map(BookDto::getIsbn)
-                    .collect(java.util.stream.Collectors.joining(", "));
+        try {
+            for (BookDto dto : booksDto) {
+                if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Book with ISBN " + dto.getIsbn() + " already exists"
+                    );
+                }
+                Book book = bookMapper.toEntity(dto);
+                setBookRelations(book, dto);
+                bookRepository.save(book);
+                results.add(new BulkCreateResultDto.BookResult(
+                        dto.getIsbn(), true, "Book created successfully", null));
+            }
+            result.setResults(results);
+            result.setTotalSuccess(results.size());
+            result.setTotalFailed(0);
+            result.setMessage(String.format("Successfully created %d books atomically", results.size()));
+            log.info("Bulk create WITH transaction: {} books saved atomically", results.size());
+            return result;
+        } catch (Exception e) {
+            log.error("Error in transactional bulk create - rolling back everything: {}", e.getMessage());
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Обнаружены дубликаты ISBN: " + duplicateIsbns + ". Все операции откатятся."
-            );
+                    "Transaction rolled back: " + e.getMessage(), e);
+        }
+    }
+
+    private void setBookRelations(Book book, BookDto dto) {
+        if (dto.getPublisherId() != null) {
+            Publisher publisher = publisherRepository.findById(dto.getPublisherId())
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "Publisher not found: " + dto.getPublisherId()));
+            book.setPublisher(publisher);
         }
 
-        List<Book> booksToSave = booksDto.stream()
-                .map(dto -> {
-                    Book book = bookMapper.toEntity(dto);
-                    setBookPublisher(book, dto.getPublisherId());
-                    setBookAuthors(book, dto.getAuthorIds());
-                    setBookGenres(book, dto.getGenreIds());
-                    return book;
-                })
-                .toList();
-
-        List<Book> savedBooks = bookRepository.saveAll(booksToSave);
-        result.setSuccessful(savedBooks.size());
-        result.setFailed(0);
-        result.setCreatedBooks(savedBooks.stream()
-                .map(bookMapper::toDto)
-                .toList());
-
-        indexService.invalidateCache();
-        log.info("Bulk create WITH transaction: {} books saved atomically", savedBooks.size());
-        return result;
+        if (dto.getAuthorIds() != null && !dto.getAuthorIds().isEmpty()) {
+            Set<Author> authors = new HashSet<>(authorRepository.findAllById(dto.getAuthorIds()));
+            if (authors.size() != dto.getAuthorIds().size()) {
+                throw new EntityNotFoundException("Some authors not found");
+            }
+            book.setAuthors(authors);
+        }
     }
 }

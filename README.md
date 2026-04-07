@@ -32,46 +32,13 @@ Electronic Book Catalog — это учебное Spring Boot приложени
 
 ## Bulk-операция (ошибка) без транзакции
 
-   POST http://localhost:8080/api/books/bulk/without-transaction 
-
-   [
-   {
-   "isbn": "9785043333333",
-   "title": "Первая книга (сохранится)",
-   "price": 500.00,
-   "publisherId": 1,
-   "authorIds": [1]
-   },
-   {
-   "isbn": "9785699180312",
-   "title": "Вторая книга (дубликат, вызовет ошибку)",
-   "price": 500.00,
-   "publisherId": 1,
-   "authorIds": [1]
-   }
-   ]
-
+   POST http://localhost:8080/api/books/bulk/without-transaction
+   [ { "isbn": "9785012344444", "title": "Первая книга", "price": 500.00, "publisherId": 1, "authorIds": [1] }, { "isbn": "9785042222222", "title": "Вторая книга (дубликат)", "price": 500.00, "publisherId": 1, "authorIds": [1] } ]
  
 ## Bulk-операция (ошибка) с транзакцией
 
    POST http://localhost:8080/api/books/bulk/with-transaction
-
-   [
-    {
-        "isbn": "9785044444444",
-        "title": "Первая книга",
-        "price": 500.00,
-        "publisherId": 1,
-        "authorIds": [1]
-    },
-    {
-        "isbn": "9785699180312",
-        "title": "Вторая книга (дубликат)",
-        "price": 500.00,
-        "publisherId": 1,
-        "authorIds": [1]
-    }
-   ]
+   [ { "isbn": "9785012344444", "title": "Первая книга", "price": 500.00, "publisherId": 1, "authorIds": [1] }, { "isbn": "9785042222222", "title": "Вторая книга (дубликат)", "price": 500.00, "publisherId": 1, "authorIds": [1] } ]
 
 ## ER-диаграмма базы данных
 
