@@ -758,6 +758,72 @@ class BookServiceTest {
     }
 
     @Test
+    void getAllBooksWithDetails_EmptyResult_ShouldReturnEmptyList() {
+        when(bookRepository.findAllWithDetails()).thenReturn(List.of());
+
+        List<BookResponseDto> result = bookService.getAllBooksWithDetails();
+
+        assertThat(result).isEmpty();
+        verify(bookRepository).findAllWithDetails();
+    }
+
+    @Test
+    void createBook_WithNullAuthorIds_ShouldSkipAuthorProcessing() {
+        BookDto bookDtoWithoutAuthors = new BookDto();
+        bookDtoWithoutAuthors.setIsbn("9785043333999");
+        bookDtoWithoutAuthors.setTitle("Book Without Authors");
+        bookDtoWithoutAuthors.setDescription("Description");
+        bookDtoWithoutAuthors.setPublicationYear(2024);
+        bookDtoWithoutAuthors.setPrice(new BigDecimal("500"));
+        bookDtoWithoutAuthors.setPublisherId(1L);
+        bookDtoWithoutAuthors.setAuthorIds(null); // null authorIds
+
+        Book newBook = new Book();
+        newBook.setIsbn("9785043333999");
+        newBook.setTitle("Book Without Authors");
+
+        when(bookRepository.findByIsbn(bookDtoWithoutAuthors.getIsbn())).thenReturn(Optional.empty());
+        when(bookMapper.toEntity(bookDtoWithoutAuthors)).thenReturn(newBook);
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(bookRepository.save(any(Book.class))).thenReturn(newBook);
+        when(bookMapper.toDto(any(Book.class))).thenReturn(new BookResponseDto());
+
+        BookResponseDto result = bookService.createBook(bookDtoWithoutAuthors);
+
+        assertThat(result).isNotNull();
+        // Проверяем, что authorRepository не вызывался
+        verify(authorRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void createBook_WithEmptyAuthorIds_ShouldSkipAuthorProcessing() {
+        BookDto bookDtoWithEmptyAuthors = new BookDto();
+        bookDtoWithEmptyAuthors.setIsbn("9785043333998");
+        bookDtoWithEmptyAuthors.setTitle("Book With Empty Authors");
+        bookDtoWithEmptyAuthors.setDescription("Description");
+        bookDtoWithEmptyAuthors.setPublicationYear(2024);
+        bookDtoWithEmptyAuthors.setPrice(new BigDecimal("500"));
+        bookDtoWithEmptyAuthors.setPublisherId(1L);
+        bookDtoWithEmptyAuthors.setAuthorIds(Set.of()); // пустой Set authorIds
+
+        Book newBook = new Book();
+        newBook.setIsbn("9785043333998");
+        newBook.setTitle("Book With Empty Authors");
+
+        when(bookRepository.findByIsbn(bookDtoWithEmptyAuthors.getIsbn())).thenReturn(Optional.empty());
+        when(bookMapper.toEntity(bookDtoWithEmptyAuthors)).thenReturn(newBook);
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(bookRepository.save(any(Book.class))).thenReturn(newBook);
+        when(bookMapper.toDto(any(Book.class))).thenReturn(new BookResponseDto());
+
+        BookResponseDto result = bookService.createBook(bookDtoWithEmptyAuthors);
+
+        assertThat(result).isNotNull();
+        // Проверяем, что authorRepository не вызывался
+        verify(authorRepository, never()).findAllById(any());
+    }
+
+    @Test
     void setBookRelations_WithPartialAuthors_ThrowsEntityNotFound() {
         BookDto invalidBookDto = new BookDto();
         invalidBookDto.setIsbn("9785043333999");
