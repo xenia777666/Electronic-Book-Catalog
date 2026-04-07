@@ -840,4 +840,111 @@ class BookServiceTest {
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("Some authors not found");
     }
+
+    // ============ ТЕСТЫ ДЛЯ ПОЛНОГО ПОКРЫТИЯ СТРОКИ 83 (updateBook проверка ISBN) ============
+
+    @Test
+    void updateBook_WhenIsbnChangedAndDoesNotExist_ShouldUpdateSuccessfully() {
+        // Книга в БД с ISBN "9785043333333"
+        Book existingBook = new Book();
+        existingBook.setId(1L);
+        existingBook.setIsbn("9785043333333");
+        existingBook.setTitle("Old Title");
+        existingBook.setPublisher(publisher);
+        existingBook.setAuthors(Set.of(author));
+
+        // DTO с новым ISBN, которого нет в БД
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn("9785043333999"); // Новый ISBN
+        updateDto.setTitle("New Title");
+        updateDto.setDescription("New Description");
+        updateDto.setPublicationYear(2025);
+        updateDto.setPrice(new BigDecimal("600"));
+        updateDto.setPublisherId(1L);
+        updateDto.setAuthorIds(Set.of(1L));
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(existingBook));
+        when(bookRepository.findByIsbn("9785043333999")).thenReturn(Optional.empty()); // Новый ISBN не существует
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(Set.of(1L))).thenReturn(List.of(author));
+        when(bookRepository.save(any(Book.class))).thenReturn(existingBook);
+        when(bookMapper.toDto(any(Book.class))).thenReturn(bookResponseDto);
+
+        BookResponseDto result = bookService.updateBook(1L, updateDto);
+
+        assertThat(result).isNotNull();
+        // Проверяем, что проверка ISBN выполнялась
+        verify(bookRepository).findByIsbn("9785043333999");
+        verify(bookRepository).save(any(Book.class));
+    }
+
+    @Test
+    void updateBook_WhenIsbnNotChanged_ShouldSkipIsbnCheck() {
+        // Книга в БД с ISBN "9785043333333"
+        Book existingBook = new Book();
+        existingBook.setId(1L);
+        existingBook.setIsbn("9785043333333");
+        existingBook.setTitle("Old Title");
+        existingBook.setPublisher(publisher);
+        existingBook.setAuthors(Set.of(author));
+
+        // DTO с тем же ISBN
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn("9785043333333"); // Тот же ISBN
+        updateDto.setTitle("New Title");
+        updateDto.setDescription("New Description");
+        updateDto.setPublicationYear(2025);
+        updateDto.setPrice(new BigDecimal("600"));
+        updateDto.setPublisherId(1L);
+        updateDto.setAuthorIds(Set.of(1L));
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(existingBook));
+        // НЕ мокаем findByIsbn, так как он не должен вызываться
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(Set.of(1L))).thenReturn(List.of(author));
+        when(bookRepository.save(any(Book.class))).thenReturn(existingBook);
+        when(bookMapper.toDto(any(Book.class))).thenReturn(bookResponseDto);
+
+        BookResponseDto result = bookService.updateBook(1L, updateDto);
+
+        assertThat(result).isNotNull();
+        // Проверяем, что findByIsbn НЕ вызывался, так как ISBN не изменился
+        verify(bookRepository, never()).findByIsbn(any());
+        verify(bookRepository).save(any(Book.class));
+    }
+
+    @Test
+    void updateBook_WhenIsbnChangedAndExists_ThrowsConflict() {
+        // Книга в БД с ISBN "9785043333333"
+        Book existingBook = new Book();
+        existingBook.setId(1L);
+        existingBook.setIsbn("9785043333333");
+        existingBook.setTitle("Old Title");
+
+        // Другая книга с новым ISBN уже существует
+        Book anotherBookWithNewIsbn = new Book();
+        anotherBookWithNewIsbn.setId(2L);
+        anotherBookWithNewIsbn.setIsbn("9785043333999");
+
+        // DTO с новым ISBN, который уже существует у другой книги
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn("9785043333999");
+        updateDto.setTitle("New Title");
+        updateDto.setDescription("New Description");
+        updateDto.setPublicationYear(2025);
+        updateDto.setPrice(new BigDecimal("600"));
+        updateDto.setPublisherId(1L);
+        updateDto.setAuthorIds(Set.of(1L));
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(existingBook));
+        when(bookRepository.findByIsbn("9785043333999")).thenReturn(Optional.of(anotherBookWithNewIsbn));
+
+        assertThatThrownBy(() -> bookService.updateBook(1L, updateDto))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT)
+                .hasMessageContaining("Book with ISBN 9785043333999 already exists");
+
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
 }
