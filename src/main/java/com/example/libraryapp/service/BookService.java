@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -209,34 +208,35 @@ public class BookService {
 
     public Book createBookWithoutTransaction(BookDto bookDto) {
         log.info("DEMONSTRATING SAVE WITHOUT @Transactional");
-        Book book = bookMapper.toEntity(bookDto);
-        Publisher tempPublisher = new Publisher();
-        tempPublisher.setName("Temp Publisher " + System.currentTimeMillis());
-        Publisher savedPublisher = publisherRepository.save(tempPublisher);
-        log.info("Temporary publisher saved: {}", savedPublisher.getId());
-
-        Author tempAuthor = new Author();
-        tempAuthor.setName("Temp Author " + System.currentTimeMillis());
-        Author savedAuthor = authorRepository.save(tempAuthor);
-        log.info("Temporary author saved: {}", savedAuthor.getId());
-
-        book.setPublisher(savedPublisher);
-        book.setAuthors(Set.of(savedAuthor));
-
-        if (bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Book with ISBN " + bookDto.getIsbn() + " already exists"
-            );
-        }
-
-        return bookRepository.save(book);
+        return createBookWithTempPublisherAndAuthor(bookDto);
     }
 
     @Transactional
     public Book createBookWithTransaction(BookDto bookDto) {
         log.info("DEMONSTRATING ATOMIC SAVE WITH @Transactional");
+        return createBookWithTempPublisherAndAuthor(bookDto);
+    }
+
+    @Transactional
+    public BulkCreateResultDto bulkCreateBooks(List<BookDto> booksDto) {
+        log.info("Bulk creating {} books WITH transaction", booksDto.size());
+        return executeBulkCreate(booksDto, false);
+    }
+
+    public BulkCreateResultDto bulkCreateBooksWithoutTransaction(List<BookDto> booksDto) {
+        log.info("Bulk creating {} books WITHOUT transaction", booksDto.size());
+        return executeBulkCreate(booksDto, true);
+    }
+
+    @Transactional
+    public BulkCreateResultDto bulkCreateBooksWithTransaction(List<BookDto> booksDto) {
+        log.info("Bulk creating {} books WITH transaction (atomic)", booksDto.size());
+        return executeBulkCreate(booksDto, false);
+    }
+
+    private Book createBookWithTempPublisherAndAuthor(BookDto bookDto) {
         Book book = bookMapper.toEntity(bookDto);
+
         Publisher tempPublisher = new Publisher();
         tempPublisher.setName("Temp Publisher " + System.currentTimeMillis());
         Publisher savedPublisher = publisherRepository.save(tempPublisher);
@@ -260,12 +260,20 @@ public class BookService {
         return bookRepository.save(book);
     }
 
-    @Transactional
-    public BulkCreateResultDto bulkCreateBooks(List<BookDto> booksDto) {
-        log.info("Bulk creating {} books WITH transaction", booksDto.size());
+    private BulkCreateResultDto executeBulkCreate(List<BookDto> booksDto, boolean partialSuccessAllowed) {
         BulkCreateResultDto result = new BulkCreateResultDto();
         List<BulkCreateResultDto.BookResult> results = new ArrayList<>();
 
+        if (partialSuccessAllowed) {
+            return executeBulkCreateWithPartialSuccess(booksDto, results, result);
+        } else {
+            return executeBulkCreateAtomic(booksDto, results, result);
+        }
+    }
+
+    private BulkCreateResultDto executeBulkCreateAtomic(List<BookDto> booksDto,
+                                                        List<BulkCreateResultDto.BookResult> results,
+                                                        BulkCreateResultDto result) {
         try {
             for (BookDto dto : booksDto) {
                 if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
@@ -294,10 +302,9 @@ public class BookService {
         }
     }
 
-    public BulkCreateResultDto bulkCreateBooksWithoutTransaction(List<BookDto> booksDto) {
-        log.info("Bulk creating {} books WITHOUT transaction", booksDto.size());
-        BulkCreateResultDto result = new BulkCreateResultDto();
-        List<BulkCreateResultDto.BookResult> results = new ArrayList<>();
+    private BulkCreateResultDto executeBulkCreateWithPartialSuccess(List<BookDto> booksDto,
+                                                                    List<BulkCreateResultDto.BookResult> results,
+                                                                    BulkCreateResultDto result) {
         int successCount = 0;
         int failedCount = 0;
         List<String> errors = new ArrayList<>();
@@ -362,40 +369,6 @@ public class BookService {
         result.setMessage(String.format("Successfully created %d books", successCount));
         log.info("Bulk create WITHOUT transaction: {} successful, {} failed", successCount, failedCount);
         return result;
-    }
-
-    @Transactional
-    public BulkCreateResultDto bulkCreateBooksWithTransaction(List<BookDto> booksDto) {
-        log.info("Bulk creating {} books WITH transaction (atomic)", booksDto.size());
-        BulkCreateResultDto result = new BulkCreateResultDto();
-        List<BulkCreateResultDto.BookResult> results = new ArrayList<>();
-
-        try {
-            for (BookDto dto : booksDto) {
-                if (bookRepository.findByIsbn(dto.getIsbn()).isPresent()) {
-                    throw new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            "Book with ISBN " + dto.getIsbn() + " already exists"
-                    );
-                }
-                Book book = bookMapper.toEntity(dto);
-                setBookRelations(book, dto);
-                bookRepository.save(book);
-                results.add(new BulkCreateResultDto.BookResult(
-                        dto.getIsbn(), true, BOOK_CREATED_SUCCESSFULLY, null));
-            }
-            result.setResults(results);
-            result.setTotalSuccess(results.size());
-            result.setTotalFailed(0);
-            result.setMessage(String.format("Successfully created %d books atomically", results.size()));
-            log.info("Bulk create WITH transaction: {} books saved atomically", results.size());
-            return result;
-        } catch (Exception e) {
-            log.error("Error in transactional bulk create - rolling back everything: {}", e.getMessage());
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Transaction rolled back: " + e.getMessage(), e);
-        }
     }
 
     private void setBookRelations(Book book, BookDto dto) {
