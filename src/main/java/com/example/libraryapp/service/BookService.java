@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -80,7 +80,6 @@ public class BookService {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Book not found with id: " + id));
 
-        // Проверка ISBN ДО setBookRelations
         if (!book.getIsbn().equals(bookDto.getIsbn())
                 && bookRepository.findByIsbn(bookDto.getIsbn()).isPresent()) {
             throw new ResponseStatusException(
