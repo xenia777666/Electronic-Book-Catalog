@@ -30,12 +30,10 @@ public class AsyncController {
 
     @PostMapping
     public ResponseEntity<TaskCreatedResponseDto> startTask() {
-        // Запускаем задачу - метод возвращает ID СРАЗУ
         String taskId = asyncTaskService.startTask();
 
         log.info("Задача {} запущена, HTTP ответ отправлен немедленно", taskId);
 
-        // Возвращаем 202 Accepted + ID задачи (НЕ дожидаемся завершения!)
         return ResponseEntity
                 .status(HttpStatus.ACCEPTED)
                 .body(new TaskCreatedResponseDto(taskId));

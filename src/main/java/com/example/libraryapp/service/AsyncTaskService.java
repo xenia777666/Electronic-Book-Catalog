@@ -1,7 +1,6 @@
 package com.example.libraryapp.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -16,42 +15,33 @@ public class AsyncTaskService {
 
     private final Map<String, TaskStatus> taskStatuses = new ConcurrentHashMap<>();
     private final AtomicLong taskCounter = new AtomicLong(0);
+    private final AsyncTaskService self;  // Self-injection через конструктор
 
     private static final String STATUS_PENDING = "PENDING";
     private static final String STATUS_RUNNING = "RUNNING";
     private static final String STATUS_COMPLETED = "COMPLETED";
     private static final String STATUS_FAILED = "FAILED";
 
-    @Lazy
-    @Autowired
-    private AsyncTaskService self;
+    public AsyncTaskService(@Lazy AsyncTaskService self) {
+        this.self = self;
+    }
 
-    /**
-     * Запустить асинхронную задачу
-     * Возвращает ID задачи СРАЗУ, не дожидаясь выполнения
-     */
     public String startTask() {
-        // 1. Сразу генерируем ID
         String taskId = String.valueOf(taskCounter.incrementAndGet());
 
-        // 2. Создаем статус PENDING
         TaskStatus status = new TaskStatus();
         status.setStatus(STATUS_PENDING);
         taskStatuses.put(taskId, status);
 
         log.info("Асинхронная задача {} создана (статус PENDING)", taskId);
 
-        // 3. Запускаем асинхронное выполнение через self (чтобы @Async сработал)
+
         self.executeTaskAsync(taskId);
 
-        // 4. СРАЗУ возвращаем ID (до завершения задачи!)
         return taskId;
     }
 
-    /**
-     * Асинхронное выполнение бизнес-логики
-     * Этот метод выполняется в отдельном потоке
-     */
+
     @Async("taskExecutor")
     public void executeTaskAsync(String taskId) {
         TaskStatus status = taskStatuses.get(taskId);
@@ -61,15 +51,15 @@ public class AsyncTaskService {
             return;
         }
 
-        log.info("Начало выполнения асинхронной задачи {} в потоке {}", taskId, Thread.currentThread().getName());
+        log.info("Начало выполнения асинхронной задачи {} в потоке {}",
+                taskId, Thread.currentThread().getName());
         status.setStatus(STATUS_RUNNING);
         status.setStartTime(System.currentTimeMillis());
 
         try {
-            // Имитация долгой бизнес-операции (30 секунд)
-            Thread.sleep(30000);
 
-            // Успешное завершение
+            Thread.sleep(15000);
+
             status.setStatus(STATUS_COMPLETED);
             status.setResult("Бизнес-операция успешно выполнена");
             status.setEndTime(System.currentTimeMillis());
@@ -94,23 +84,14 @@ public class AsyncTaskService {
         }
     }
 
-    /**
-     * Получить статус задачи по ID
-     */
     public TaskStatus getTaskStatus(String taskId) {
         return taskStatuses.get(taskId);
     }
 
-    /**
-     * Получить все задачи
-     */
     public Map<String, TaskStatus> getAllTasks() {
         return new ConcurrentHashMap<>(taskStatuses);
     }
 
-    /**
-     * Очистить старые задачи (старше 1 часа)
-     */
     public int cleanOldTasks() {
         long oneHourAgo = System.currentTimeMillis() - 3600000;
         int removed = 0;
@@ -129,9 +110,6 @@ public class AsyncTaskService {
         return removed;
     }
 
-    /**
-     * Внутренний класс для хранения статуса задачи
-     */
     public static class TaskStatus {
         private String status;
         private String result;

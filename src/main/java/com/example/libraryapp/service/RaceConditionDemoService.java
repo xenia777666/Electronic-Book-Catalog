@@ -12,83 +12,89 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class RaceConditionDemoService {
 
-
     public RaceConditionResult demonstrateRaceCondition(int numberOfThreads, int incrementsPerThread) {
-        log.info("Демонстрация race condition с {} потоками, {} инкрементов на поток",
-                numberOfThreads, incrementsPerThread);
+        int actualThreads = Math.max(numberOfThreads, 50);
 
+        log.info("Демонстрация race condition с {} потоками, {} инкрементов на поток",
+                actualThreads, incrementsPerThread);
 
         UnsafeCounter unsafeCounter = new UnsafeCounter();
         SynchronizedCounter synchronizedCounter = new SynchronizedCounter();
         AtomicInteger atomicCounter = new AtomicInteger(0);
 
-        ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+        ExecutorService executor = startAllCounters(actualThreads, incrementsPerThread,
+                unsafeCounter, synchronizedCounter, atomicCounter);
 
+        waitForCompletion(executor);
 
-        for (int i = 0; i < numberOfThreads; i++) {
-            executor.submit(() -> {
-                for (int j = 0; j < incrementsPerThread; j++) {
-                    unsafeCounter.increment();
-                }
-            });
+        return buildResult(actualThreads, incrementsPerThread,
+                unsafeCounter, synchronizedCounter, atomicCounter);
+    }
+
+    private ExecutorService startAllCounters(int threads, int increments,
+                                             UnsafeCounter unsafe,
+                                             SynchronizedCounter sync,
+                                             AtomicInteger atomic) {
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+        for (int i = 0; i < threads; i++) {
+            executor.submit(() -> runCounterTasks(increments, unsafe, sync, atomic));
         }
 
+        return executor;
+    }
 
-        for (int i = 0; i < numberOfThreads; i++) {
-            executor.submit(() -> {
-                for (int j = 0; j < incrementsPerThread; j++) {
-                    synchronizedCounter.increment();
-                }
-            });
+
+    private void runCounterTasks(int increments,
+                                 UnsafeCounter unsafe,
+                                 SynchronizedCounter sync,
+                                 AtomicInteger atomic) {
+        for (int j = 0; j < increments; j++) {
+            unsafe.increment();
+            sync.increment();
+            atomic.incrementAndGet();
         }
+    }
 
 
-        for (int i = 0; i < numberOfThreads; i++) {
-            executor.submit(() -> {
-                for (int j = 0; j < incrementsPerThread; j++) {
-                    atomicCounter.incrementAndGet();
-                }
-            });
-        }
-
-
+    private void waitForCompletion(ExecutorService executor) {
         executor.shutdown();
         try {
-            boolean finished = executor.awaitTermination(60, TimeUnit.SECONDS);
-            if (!finished) {
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
                 executor.shutdownNow();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             executor.shutdownNow();
         }
+    }
 
-        int expectedValue = numberOfThreads * incrementsPerThread;
+
+    private RaceConditionResult buildResult(int threads, int increments,
+                                            UnsafeCounter unsafe,
+                                            SynchronizedCounter sync,
+                                            AtomicInteger atomic) {
+        int expectedValue = threads * increments;
 
         RaceConditionResult result = new RaceConditionResult();
         result.setExpectedValue(expectedValue);
-        result.setUnsafeCounterValue(unsafeCounter.getValue());
-        result.setSynchronizedCounterValue(synchronizedCounter.getValue());
-        result.setAtomicCounterValue(atomicCounter.get());
-        result.setNumberOfThreads(numberOfThreads);
-        result.setIncrementsPerThread(incrementsPerThread);
-
-
-        result.setUnsafeLoss(expectedValue - unsafeCounter.getValue());
-        result.setSynchronizedLoss(expectedValue - synchronizedCounter.getValue());
-        result.setAtomicLoss(expectedValue - atomicCounter.get());
+        result.setUnsafeCounterValue(unsafe.getValue());
+        result.setSynchronizedCounterValue(sync.getValue());
+        result.setAtomicCounterValue(atomic.get());
+        result.setNumberOfThreads(threads);
+        result.setIncrementsPerThread(increments);
+        result.setUnsafeLoss(expectedValue - unsafe.getValue());
+        result.setSynchronizedLoss(expectedValue - sync.getValue());
+        result.setAtomicLoss(expectedValue - atomic.get());
 
         log.info("Результаты race condition:");
         log.info("  Ожидаемое значение: {}", expectedValue);
-        log.info("  Unsafe counter: {} (потеряно {})", unsafeCounter.getValue(), result.getUnsafeLoss());
-        log.info("  Synchronized counter: {} (потеряно {})",
-                synchronizedCounter.getValue(), result.getSynchronizedLoss());
-        log.info("  Atomic counter: {} (потеряно {})", atomicCounter.get(), result.getAtomicLoss());
+        log.info("  Unsafe counter: {} (потеряно {})", unsafe.getValue(), result.getUnsafeLoss());
+        log.info("  Synchronized counter: {} (потеряно {})", sync.getValue(), result.getSynchronizedLoss());
+        log.info("  Atomic counter: {} (потеряно {})", atomic.get(), result.getAtomicLoss());
 
         if (result.getUnsafeLoss() > 0) {
             log.warn("⚠️ RACE CONDITION ОБНАРУЖЕНА! Потеряно {} операций", result.getUnsafeLoss());
-        } else {
-            log.warn("⚠️ Race condition не проявилась. Увеличьте количество потоков до 200+");
         }
 
         return result;
@@ -119,6 +125,7 @@ public class RaceConditionDemoService {
         }
     }
 
+
     public static class RaceConditionResult {
         private int expectedValue;
         private int unsafeCounterValue;
@@ -130,24 +137,18 @@ public class RaceConditionDemoService {
         private int synchronizedLoss;
         private int atomicLoss;
 
-
         public int getExpectedValue() {
-            return expectedValue;
-        }
+            return expectedValue; }
         public void setExpectedValue(int expectedValue) {
-            this.expectedValue = expectedValue;
-        }
+            this.expectedValue = expectedValue; }
 
         public int getUnsafeCounterValue() {
-            return unsafeCounterValue;
-        }
+            return unsafeCounterValue; }
         public void setUnsafeCounterValue(int unsafeCounterValue) {
-            this.unsafeCounterValue = unsafeCounterValue;
-        }
+            this.unsafeCounterValue = unsafeCounterValue; }
 
         public int getSynchronizedCounterValue() {
-            return synchronizedCounterValue;
-        }
+            return synchronizedCounterValue; }
         public void setSynchronizedCounterValue(int synchronizedCounterValue) {
             this.synchronizedCounterValue = synchronizedCounterValue;
         }
