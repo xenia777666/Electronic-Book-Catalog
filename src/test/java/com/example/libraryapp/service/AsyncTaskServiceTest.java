@@ -17,7 +17,7 @@ class AsyncTaskServiceTest {
     @BeforeEach
     void setUp() {
         asyncTaskService = new AsyncTaskService();
-        asyncTaskService.setTestMode(true); // Включаем тестовый режим (10 мс вместо 15 сек)
+        asyncTaskService.setTestMode(true);
     }
 
     @Test
@@ -37,12 +37,15 @@ class AsyncTaskServiceTest {
 
         TaskStatus status = asyncTaskService.getTaskStatus(taskId);
 
-        assertThat(status).isNotNull();
-        assertThat(status.getStatus()).isEqualTo("PENDING");
-        assertThat(status.getStartTime()).isGreaterThan(0);
-        assertThat(status.getResult()).isNull();
-        assertThat(status.getError()).isNull();
-        assertThat(status.getEndTime()).isZero();
+        assertThat(status)
+                .isNotNull()
+                .satisfies(s -> {
+                    assertThat(s.getStatus()).isEqualTo("PENDING");
+                    assertThat(s.getStartTime()).isGreaterThan(0);
+                    assertThat(s.getResult()).isNull();
+                    assertThat(s.getError()).isNull();
+                    assertThat(s.getEndTime()).isZero();
+                });
     }
 
     @Test
@@ -51,8 +54,10 @@ class AsyncTaskServiceTest {
 
         TaskStatus status = asyncTaskService.getTaskStatus(taskId);
 
-        assertThat(status).isNotNull();
-        assertThat(status.getStatus()).isEqualTo("PENDING");
+        assertThat(status)
+                .isNotNull()
+                .extracting(TaskStatus::getStatus)
+                .isEqualTo("PENDING");
     }
 
     @Test
@@ -75,8 +80,9 @@ class AsyncTaskServiceTest {
 
         Map<String, TaskStatus> tasks = asyncTaskService.getAllTasks();
 
-        assertThat(tasks).hasSize(3);
-        assertThat(tasks).containsKeys("1", "2", "3");
+        assertThat(tasks)
+                .hasSize(3)
+                .containsKeys("1", "2", "3");
     }
 
     @Test
@@ -100,11 +106,14 @@ class AsyncTaskServiceTest {
     void taskStatus_Constructor_SetsPendingAndStartTime() {
         TaskStatus status = new TaskStatus();
 
-        assertThat(status.getStatus()).isEqualTo("PENDING");
-        assertThat(status.getStartTime()).isGreaterThan(0);
-        assertThat(status.getResult()).isNull();
-        assertThat(status.getError()).isNull();
-        assertThat(status.getEndTime()).isZero();
+        assertThat(status)
+                .satisfies(s -> {
+                    assertThat(s.getStatus()).isEqualTo("PENDING");
+                    assertThat(s.getStartTime()).isGreaterThan(0);
+                    assertThat(s.getResult()).isNull();
+                    assertThat(s.getError()).isNull();
+                    assertThat(s.getEndTime()).isZero();
+                });
     }
 
     @Test
@@ -147,9 +156,9 @@ class AsyncTaskServiceTest {
     @Test
     void taskStatus_GetDuration_WhenNotCompleted_ReturnsCurrentDuration() throws InterruptedException {
         TaskStatus status = new TaskStatus();
-        Thread.sleep(10);
+        Thread.sleep(100);
         long duration = status.getDuration();
-        assertThat(duration).isGreaterThanOrEqualTo(10);
+        assertThat(duration).isGreaterThanOrEqualTo(100);
     }
 
     @Test
@@ -169,25 +178,16 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void executeTaskAsync_WhenTaskExists_ShouldSetStatusToRunning() throws InterruptedException {
-        String taskId = asyncTaskService.startTask();
-
-        asyncTaskService.executeTaskAsync(taskId);
-
-        Thread.sleep(50); // Даем время на выполнение
-
-        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
-        assertThat(status.getStatus()).isEqualTo("COMPLETED");
-    }
-
-    @Test
     void multipleStartTasks_ShouldCreateUniqueTasks() {
         String taskId1 = asyncTaskService.startTask();
         String taskId2 = asyncTaskService.startTask();
         String taskId3 = asyncTaskService.startTask();
 
-        assertThat(taskId1).isNotEqualTo(taskId2);
+        assertThat(taskId1)
+                .isNotEqualTo(taskId2)
+                .isNotEqualTo(taskId3);
         assertThat(taskId2).isNotEqualTo(taskId3);
+
         assertThat(asyncTaskService.getTaskStatus(taskId1)).isNotNull();
         assertThat(asyncTaskService.getTaskStatus(taskId2)).isNotNull();
         assertThat(asyncTaskService.getTaskStatus(taskId3)).isNotNull();
@@ -227,7 +227,8 @@ class AsyncTaskServiceTest {
 
         int removed = asyncTaskService.cleanOldTasks();
 
-        assertThat(removed).isEqualTo(1);
+        assertThat(removed)
+                .isEqualTo(1);
         assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
     }
 
@@ -241,7 +242,8 @@ class AsyncTaskServiceTest {
 
         int removed = asyncTaskService.cleanOldTasks();
 
-        assertThat(removed).isEqualTo(1);
+        assertThat(removed)
+                .isEqualTo(1);
         assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
     }
 
@@ -260,14 +262,22 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void executeTaskAsync_ShouldSetStartTime() throws InterruptedException {
+    void executeTaskAsync_WhenTaskExists_ShouldCompleteSuccessfully() throws InterruptedException {
         String taskId = asyncTaskService.startTask();
 
         asyncTaskService.executeTaskAsync(taskId);
 
-        Thread.sleep(50);
+        Thread.sleep(100);
 
         TaskStatus status = asyncTaskService.getTaskStatus(taskId);
-        assertThat(status.getStartTime()).isGreaterThan(0);
+        assertThat(status)
+                .isNotNull()
+                .satisfies(s -> {
+                    assertThat(s.getStatus()).isEqualTo("COMPLETED");
+                    assertThat(s.getStartTime()).isGreaterThan(0);
+                    assertThat(s.getResult()).isEqualTo("Бизнес-операция успешно выполнена");
+                    assertThat(s.getEndTime()).isGreaterThan(0);
+                    assertThat(s.getDuration()).isGreaterThan(0);
+                });
     }
 }
