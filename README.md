@@ -7,89 +7,33 @@
 
 ## Задачи
 
-1. **Реализовать bulk-операцию** (POST со списком объектов) с бизнес-смыслом
-2. **Использовать Stream API и Optional** в сервисном слое
-3. **Обеспечить транзакционность** bulk-операции:
-   - Продемонстрировать работу **с/без `@Transactional`**
-   - Показать разницу в состоянии БД
-4. **Написать unit-тесты** для сервисов (Mockito)
+1. Реализовать асинхронную бизнес-операцию через @Async / CompletableFuture, которая:
+- возвращает ID задачи
+- позволяет проверить статус выполнения
+2. Реализовать потокобезопасный счётчик (или аналогичный механизм) с использованием synchronized или Atomic.
+3. Продемонстрировать возможный race condition (ExecutorService 50+ потоков) и его решение.
+4. Провести нагрузочное тестирование JMeter и показать результаты.
 
 - [SonarCloud](https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog)
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html#/)
 
 ## API endpoints
 
-### ✅ Успешная bulk-операция
+### ✅ Асинхронная операция
 ```http
-POST http://localhost:8080/api/books/bulk
-```
-**Body**:
-```json
-[
-  {
-    "isbn": "9785041111111",
-    "title": "Bulk книга 1",
-    "price": 500.00,
-    "publisherId": 1,
-    "authorIds": [1]
-  },
-  {
-    "isbn": "9785042222222",
-    "title": "Bulk книга 2",
-    "price": 600.00,
-    "publisherId": 1,
-    "authorIds": [1]
-  }
-]
+POST http://localhost:8080/api/tasks
 ```
 
-### ❌ Bulk-операция (ошибка) **без транзакции**
+### Проверка статуса операции по id
 ```http
-POST http://localhost:8080/api/books/bulk/without-transaction
-```
-**Body** 
-```json
-[
-  {
-    "isbn": "9785012344444",
-    "title": "Первая книга",
-    "price": 500.00,
-    "publisherId": 1,
-    "authorIds": [1]
-  },
-  {
-    "isbn": "9785042222222",
-    "title": "Вторая книга (дубликат)",
-    "price": 500.00,
-    "publisherId": 1,
-    "authorIds": [1]
-  }
-]
+GET http://localhost:8080/api/tasks/.
 ```
 
-### ❌ Bulk-операция (ошибка) **с транзакцией**
+### Демонстрация race-condition
 ```http
-POST http://localhost:8080/api/books/bulk/with-transaction
+GET http://localhost:8080/api/race-condition/race-demo?threads=1000&incrementsPerThread=10000
 ```
-**Body** 
-```json
-[
-  {
-    "isbn": "9785012344444",
-    "title": "Первая книга",
-    "price": 500.00,
-    "publisherId": 1,
-    "authorIds": [1]
-  },
-  {
-    "isbn": "9785042222222",
-    "title": "Вторая книга (дубликат)",
-    "price": 500.00,
-    "publisherId": 1,
-    "authorIds": [1]
-  }
-]
-```
+
 
 ## ER-диаграмма базы данных
 
