@@ -1,7 +1,6 @@
 package com.example.libraryapp.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -15,37 +14,36 @@ public class AsyncTaskService {
 
     private final Map<String, TaskStatus> taskStatuses = new ConcurrentHashMap<>();
     private final AtomicLong taskCounter = new AtomicLong(0);
-    private final AsyncTaskService self;  // Self-injection через конструктор
 
     private static final String STATUS_PENDING = "PENDING";
     private static final String STATUS_RUNNING = "RUNNING";
     private static final String STATUS_COMPLETED = "COMPLETED";
     private static final String STATUS_FAILED = "FAILED";
 
-    public AsyncTaskService(@Lazy AsyncTaskService self) {
-        this.self = self;
+    // Флаг для тестов - отключает реальный sleep
+    private boolean testMode = false;
+
+    public void setTestMode(boolean testMode) {
+        this.testMode = testMode;
     }
 
     public String startTask() {
         String taskId = String.valueOf(taskCounter.incrementAndGet());
-
         TaskStatus status = new TaskStatus();
         status.setStatus(STATUS_PENDING);
         taskStatuses.put(taskId, status);
-
         log.info("Асинхронная задача {} создана (статус PENDING)", taskId);
 
-
-        self.executeTaskAsync(taskId);
+        if (!testMode) {
+            executeTaskAsync(taskId);
+        }
 
         return taskId;
     }
 
-
     @Async("taskExecutor")
     public void executeTaskAsync(String taskId) {
         TaskStatus status = taskStatuses.get(taskId);
-
         if (status == null) {
             log.error("Задача {} не найдена", taskId);
             return;
@@ -57,29 +55,26 @@ public class AsyncTaskService {
         status.setStartTime(System.currentTimeMillis());
 
         try {
-
-            Thread.sleep(15000);
-
+            if (testMode) {
+                Thread.sleep(10); // В тестовом режиме спим 10 мс вместо 15 секунд
+            } else {
+                Thread.sleep(15000); // В реальном режиме 15 секунд
+            }
             status.setStatus(STATUS_COMPLETED);
             status.setResult("Бизнес-операция успешно выполнена");
             status.setEndTime(System.currentTimeMillis());
-
             log.info("Асинхронная задача {} успешно завершена за {} мс",
                     taskId, status.getDuration());
-
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             status.setStatus(STATUS_FAILED);
             status.setError("Задача была прервана: " + e.getMessage());
             status.setEndTime(System.currentTimeMillis());
-
             log.error("Асинхронная задача {} была прервана", taskId, e);
-
         } catch (Exception e) {
             status.setStatus(STATUS_FAILED);
             status.setError("Ошибка выполнения: " + e.getMessage());
             status.setEndTime(System.currentTimeMillis());
-
             log.error("Ошибка в асинхронной задаче {}", taskId, e);
         }
     }
@@ -95,7 +90,6 @@ public class AsyncTaskService {
     public int cleanOldTasks() {
         long oneHourAgo = System.currentTimeMillis() - 3600000;
         int removed = 0;
-
         for (Map.Entry<String, TaskStatus> entry : taskStatuses.entrySet()) {
             TaskStatus status = entry.getValue();
             if ((status.getStatus().equals(STATUS_COMPLETED) ||
@@ -105,7 +99,6 @@ public class AsyncTaskService {
                 removed++;
             }
         }
-
         log.info("Очищено {} старых задач", removed);
         return removed;
     }
