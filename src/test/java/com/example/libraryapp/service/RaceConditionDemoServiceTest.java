@@ -158,6 +158,22 @@ class RaceConditionDemoServiceTest {
     }
 
     @Test
+    void demonstrateRaceCondition_WhenInterrupted_ShouldHandleGracefully() throws Exception {
+        RaceConditionDemoService service = new RaceConditionDemoService();
+
+        Thread testThread = new Thread(() -> {
+            service.demonstrateRaceCondition(100, 500);
+        });
+
+        testThread.start();
+        Thread.sleep(100);
+        testThread.interrupt();
+        testThread.join(1000);
+
+        assertThat(testThread.isAlive()).isFalse();
+    }
+
+    @Test
     void demonstrateRaceCondition_ShouldHaveAtomicCounterCorrect() {
         RaceConditionResult result = service.demonstrateRaceCondition(100, 1000);
 

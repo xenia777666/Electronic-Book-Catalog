@@ -4,6 +4,7 @@ import com.example.libraryapp.service.AsyncTaskService.TaskStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Constructor;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -17,9 +18,14 @@ class AsyncTaskServiceTest {
 
     @BeforeEach
     void setUp() {
-        asyncTaskService = new AsyncTaskService();
-        asyncTaskService.setSelf(asyncTaskService);
+        asyncTaskService = new AsyncTaskService(null);
         asyncTaskService.setTestMode(true);
+    }
+
+    @Test
+    void constructor_WithNullSelf_ShouldWork() {
+        AsyncTaskService service = new AsyncTaskService(null);
+        assertThat(service).isNotNull();
     }
 
     @Test
@@ -51,6 +57,17 @@ class AsyncTaskServiceTest {
     }
 
     @Test
+    void startTask_WhenTestModeFalse_ShouldCallExecuteTaskAsync() {
+        AsyncTaskService realService = new AsyncTaskService(null);
+        realService.setTestMode(false);
+
+        String taskId = realService.startTask();
+
+        assertThat(taskId).isNotNull();
+        assertThat(realService.getTaskStatus(taskId)).isNotNull();
+    }
+
+    @Test
     void executeTaskAsync_WhenTaskNotFound_ShouldDoNothing() {
         asyncTaskService.executeTaskAsync("999");
         assertThat(asyncTaskService.getTaskStatus("999")).isNull();
@@ -78,19 +95,22 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void executeTaskAsync_WhenGenericExceptionThrown_ShouldSetFailedStatus() throws Exception {
-        asyncTaskService.setThrowTestException(true);
+    void executeTaskAsync_WhenInterruptedExceptionOccurs_ShouldSetFailedStatus() throws Exception {
         String taskId = asyncTaskService.startTask();
 
-        CompletableFuture.runAsync(() -> asyncTaskService.executeTaskAsync(taskId))
-                .get(1, TimeUnit.SECONDS);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+            Thread.currentThread().interrupt();
+            asyncTaskService.executeTaskAsync(taskId);
+        });
+
+        future.get(1, TimeUnit.SECONDS);
 
         TaskStatus status = asyncTaskService.getTaskStatus(taskId);
         assertThat(status)
                 .isNotNull()
                 .satisfies(s -> {
                     assertThat(s.getStatus()).isEqualTo("FAILED");
-                    assertThat(s.getError()).contains("Simulated test exception");
+                    assertThat(s.getError()).contains("Задача была прервана");
                     assertThat(s.getEndTime()).isGreaterThan(0);
                 });
     }
@@ -239,6 +259,14 @@ class AsyncTaskServiceTest {
     }
 
     @Test
+    void taskStatus_GetDuration_WhenNotCompleted_ReturnsCurrentDuration() throws InterruptedException {
+        TaskStatus status = new TaskStatus();
+        Thread.sleep(10);
+        long duration = status.getDuration();
+        assertThat(duration).isGreaterThanOrEqualTo(10);
+    }
+
+    @Test
     void taskStatus_GetDuration_WhenCompleted_ReturnsFixedDuration() {
         TaskStatus status = new TaskStatus();
         long startTime = 1000L;
@@ -246,6 +274,15 @@ class AsyncTaskServiceTest {
         status.setStartTime(startTime);
         status.setEndTime(endTime);
         assertThat(status.getDuration()).isEqualTo(4000L);
+    }
+
+    @Test
+    void taskStatus_GetDuration_WhenEndTimeIsZero_ReturnsCurrentDuration() throws InterruptedException {
+        TaskStatus status = new TaskStatus();
+        Thread.sleep(10);
+        long duration = status.getDuration();
+        assertThat(duration).isGreaterThanOrEqualTo(10);
+        assertThat(status.getEndTime()).isZero();
     }
 
     @Test
@@ -273,29 +310,13 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void startTask_WhenTestModeFalse_ShouldWork() {
+    void setTestMode_ShouldChangeTestMode() {
         asyncTaskService.setTestMode(false);
         String taskId = asyncTaskService.startTask();
         assertThat(taskId).isNotNull();
-    }
 
-    @Test
-    void executeTaskAsync_WhenInterruptedExceptionOccurs_ShouldSetFailedStatus() throws Exception {
-        String taskId = asyncTaskService.startTask();
-
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-            Thread.currentThread().interrupt();
-            asyncTaskService.executeTaskAsync(taskId);
-        });
-
-        future.get(1, TimeUnit.SECONDS);
-
-        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
-        assertThat(status)
-                .isNotNull()
-                .satisfies(s -> {
-                    assertThat(s.getStatus()).isEqualTo("FAILED");
-                    assertThat(s.getError()).contains("Задача была прервана");
-                });
+        asyncTaskService.setTestMode(true);
+        taskId = asyncTaskService.startTask();
+        assertThat(taskId).isNotNull();
     }
 }

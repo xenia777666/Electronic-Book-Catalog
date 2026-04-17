@@ -14,7 +14,6 @@ public class RaceConditionDemoService {
 
     public RaceConditionResult demonstrateRaceCondition(int numberOfThreads, int incrementsPerThread) {
         int actualThreads = Math.max(numberOfThreads, 50);
-
         log.info("Демонстрация race condition с {} потоками, {} инкрементов на поток",
                 actualThreads, incrementsPerThread);
 
@@ -36,14 +35,11 @@ public class RaceConditionDemoService {
                                              SynchronizedCounter sync,
                                              AtomicInteger atomic) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
-
         for (int i = 0; i < threads; i++) {
             executor.submit(() -> runCounterTasks(increments, unsafe, sync, atomic));
         }
-
         return executor;
     }
-
 
     private void runCounterTasks(int increments,
                                  UnsafeCounter unsafe,
@@ -55,7 +51,6 @@ public class RaceConditionDemoService {
             atomic.incrementAndGet();
         }
     }
-
 
     private void waitForCompletion(ExecutorService executor) {
         executor.shutdown();
@@ -69,13 +64,11 @@ public class RaceConditionDemoService {
         }
     }
 
-
     private RaceConditionResult buildResult(int threads, int increments,
                                             UnsafeCounter unsafe,
                                             SynchronizedCounter sync,
                                             AtomicInteger atomic) {
         int expectedValue = threads * increments;
-
         RaceConditionResult result = new RaceConditionResult();
         result.setExpectedValue(expectedValue);
         result.setUnsafeCounterValue(unsafe.getValue());
@@ -100,31 +93,21 @@ public class RaceConditionDemoService {
         return result;
     }
 
-
     private static class UnsafeCounter {
         private int value = 0;
-
         public void increment() {
-            value++;
-        }
-
+            value++; }
         public int getValue() {
-            return value;
-        }
+            return value; }
     }
 
     private static class SynchronizedCounter {
         private int value = 0;
-
         public synchronized void increment() {
-            value++;
-        }
-
+            value++; }
         public synchronized int getValue() {
-            return value;
-        }
+            return value; }
     }
-
 
     public static class RaceConditionResult {
         private int expectedValue;
@@ -141,43 +124,34 @@ public class RaceConditionDemoService {
             return expectedValue; }
         public void setExpectedValue(int expectedValue) {
             this.expectedValue = expectedValue; }
-
         public int getUnsafeCounterValue() {
             return unsafeCounterValue; }
         public void setUnsafeCounterValue(int unsafeCounterValue) {
             this.unsafeCounterValue = unsafeCounterValue; }
-
         public int getSynchronizedCounterValue() {
             return synchronizedCounterValue; }
         public void setSynchronizedCounterValue(int synchronizedCounterValue) {
-            this.synchronizedCounterValue = synchronizedCounterValue;
-        }
-
+            this.synchronizedCounterValue = synchronizedCounterValue; }
         public int getAtomicCounterValue() {
             return atomicCounterValue; }
         public void setAtomicCounterValue(int atomicCounterValue) {
             this.atomicCounterValue = atomicCounterValue; }
-
         public int getNumberOfThreads() {
             return numberOfThreads; }
         public void setNumberOfThreads(int numberOfThreads) {
             this.numberOfThreads = numberOfThreads; }
-
         public int getIncrementsPerThread() {
             return incrementsPerThread; }
         public void setIncrementsPerThread(int incrementsPerThread) {
             this.incrementsPerThread = incrementsPerThread; }
-
         public int getUnsafeLoss() {
             return unsafeLoss; }
         public void setUnsafeLoss(int unsafeLoss) {
             this.unsafeLoss = unsafeLoss; }
-
         public int getSynchronizedLoss() {
             return synchronizedLoss; }
         public void setSynchronizedLoss(int synchronizedLoss) {
             this.synchronizedLoss = synchronizedLoss; }
-
         public int getAtomicLoss() {
             return atomicLoss; }
         public void setAtomicLoss(int atomicLoss) {
