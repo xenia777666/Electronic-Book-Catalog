@@ -15,7 +15,7 @@ public class AsyncTaskService {
 
     private final Map<String, TaskStatus> taskStatuses = new ConcurrentHashMap<>();
     private final AtomicLong taskCounter = new AtomicLong(0);
-    private final AsyncTaskService self;
+    private AsyncTaskService self;
 
     private static final String STATUS_PENDING = "PENDING";
     private static final String STATUS_RUNNING = "RUNNING";
@@ -23,13 +23,26 @@ public class AsyncTaskService {
     private static final String STATUS_FAILED = "FAILED";
 
     private boolean testMode = false;
+    private boolean throwTestException = false;
+
+    public AsyncTaskService() {
+        this.self = this;
+    }
 
     public AsyncTaskService(@Lazy AsyncTaskService self) {
+        this.self = self != null ? self : this;
+    }
+
+    public void setSelf(AsyncTaskService self) {
         this.self = self;
     }
 
     public void setTestMode(boolean testMode) {
         this.testMode = testMode;
+    }
+
+    public void setThrowTestException(boolean throwTestException) {
+        this.throwTestException = throwTestException;
     }
 
     public String startTask() {
@@ -39,8 +52,8 @@ public class AsyncTaskService {
         taskStatuses.put(taskId, status);
         log.info("Асинхронная задача {} создана (статус PENDING)", taskId);
 
-        if (!testMode) {
-            self.executeTaskAsync(taskId);  // через self, а не this!
+        if (!testMode && self != null) {
+            self.executeTaskAsync(taskId);
         }
 
         return taskId;
@@ -60,6 +73,9 @@ public class AsyncTaskService {
         status.setStartTime(System.currentTimeMillis());
 
         try {
+            if (throwTestException) {
+                throw new RuntimeException("Simulated test exception");
+            }
             if (testMode) {
                 Thread.sleep(10);
             } else {

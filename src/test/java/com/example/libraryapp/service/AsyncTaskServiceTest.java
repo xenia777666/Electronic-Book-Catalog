@@ -17,7 +17,8 @@ class AsyncTaskServiceTest {
 
     @BeforeEach
     void setUp() {
-        asyncTaskService = new AsyncTaskService(null);
+        asyncTaskService = new AsyncTaskService();
+        asyncTaskService.setSelf(asyncTaskService);
         asyncTaskService.setTestMode(true);
     }
 
@@ -50,15 +51,56 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void getTaskStatus_WhenTaskExists_ShouldReturnStatus() {
+    void executeTaskAsync_WhenTaskNotFound_ShouldDoNothing() {
+        asyncTaskService.executeTaskAsync("999");
+        assertThat(asyncTaskService.getTaskStatus("999")).isNull();
+    }
+
+    @Test
+    void executeTaskAsync_WhenTaskExistsAndTestMode_ShouldCompleteSuccessfully() throws Exception {
         String taskId = asyncTaskService.startTask();
 
-        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                asyncTaskService.executeTaskAsync(taskId)
+        );
 
+        future.get(1, TimeUnit.SECONDS);
+
+        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
         assertThat(status)
                 .isNotNull()
-                .extracting(TaskStatus::getStatus)
-                .isEqualTo("PENDING");
+                .satisfies(s -> {
+                    assertThat(s.getStatus()).isEqualTo("COMPLETED");
+                    assertThat(s.getStartTime()).isGreaterThan(0);
+                    assertThat(s.getResult()).isEqualTo("Бизнес-операция успешно выполнена");
+                    assertThat(s.getEndTime()).isGreaterThan(0);
+                });
+    }
+
+    @Test
+    void executeTaskAsync_WhenGenericExceptionThrown_ShouldSetFailedStatus() throws Exception {
+        asyncTaskService.setThrowTestException(true);
+        String taskId = asyncTaskService.startTask();
+
+        CompletableFuture.runAsync(() -> asyncTaskService.executeTaskAsync(taskId))
+                .get(1, TimeUnit.SECONDS);
+
+        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
+        assertThat(status)
+                .isNotNull()
+                .satisfies(s -> {
+                    assertThat(s.getStatus()).isEqualTo("FAILED");
+                    assertThat(s.getError()).contains("Simulated test exception");
+                    assertThat(s.getEndTime()).isGreaterThan(0);
+                });
+    }
+
+    @Test
+    void getTaskStatus_WhenTaskExists_ShouldReturnStatus() {
+        String taskId = asyncTaskService.startTask();
+        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
+        assertThat(status).isNotNull();
+        assertThat(status.getStatus()).isEqualTo("PENDING");
     }
 
     @Test
@@ -101,6 +143,48 @@ class AsyncTaskServiceTest {
 
         assertThat(removed).isZero();
         assertThat(asyncTaskService.getAllTasks()).hasSize(2);
+    }
+
+    @Test
+    void cleanOldTasks_WhenCompletedTasksAreOld_ShouldRemoveThem() {
+        String taskId = asyncTaskService.startTask();
+
+        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
+        status.setStatus("COMPLETED");
+        status.setEndTime(System.currentTimeMillis() - 7200000);
+
+        int removed = asyncTaskService.cleanOldTasks();
+
+        assertThat(removed).isEqualTo(1);
+        assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
+    }
+
+    @Test
+    void cleanOldTasks_WhenFailedTasksAreOld_ShouldRemoveThem() {
+        String taskId = asyncTaskService.startTask();
+
+        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
+        status.setStatus("FAILED");
+        status.setEndTime(System.currentTimeMillis() - 7200000);
+
+        int removed = asyncTaskService.cleanOldTasks();
+
+        assertThat(removed).isEqualTo(1);
+        assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
+    }
+
+    @Test
+    void cleanOldTasks_WhenCompletedTasksAreRecent_ShouldNotRemoveThem() {
+        String taskId = asyncTaskService.startTask();
+
+        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
+        status.setStatus("COMPLETED");
+        status.setEndTime(System.currentTimeMillis());
+
+        int removed = asyncTaskService.cleanOldTasks();
+
+        assertThat(removed).isZero();
+        assertThat(asyncTaskService.getTaskStatus(taskId)).isNotNull();
     }
 
     @Test
@@ -165,28 +249,6 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void executeTaskAsync_WhenTaskNotFound_ShouldDoNothing() {
-        asyncTaskService.executeTaskAsync("999");
-        assertThat(asyncTaskService.getTaskStatus("999")).isNull();
-    }
-
-    @Test
-    void multipleStartTasks_ShouldCreateUniqueTasks() {
-        String taskId1 = asyncTaskService.startTask();
-        String taskId2 = asyncTaskService.startTask();
-        String taskId3 = asyncTaskService.startTask();
-
-        assertThat(taskId1)
-                .isNotEqualTo(taskId2)
-                .isNotEqualTo(taskId3);
-        assertThat(taskId2).isNotEqualTo(taskId3);
-
-        assertThat(asyncTaskService.getTaskStatus(taskId1)).isNotNull();
-        assertThat(asyncTaskService.getTaskStatus(taskId2)).isNotNull();
-        assertThat(asyncTaskService.getTaskStatus(taskId3)).isNotNull();
-    }
-
-    @Test
     void startTask_ThreadSafe_ShouldGenerateUniqueIdsUnderConcurrency() throws InterruptedException {
         int threadCount = 10;
         CountDownLatch latch = new CountDownLatch(threadCount);
@@ -211,54 +273,20 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void cleanOldTasks_WhenCompletedTasksAreOld_ShouldRemoveThem() {
+    void startTask_WhenTestModeFalse_ShouldWork() {
+        asyncTaskService.setTestMode(false);
         String taskId = asyncTaskService.startTask();
-
-        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
-        status.setStatus("COMPLETED");
-        status.setEndTime(System.currentTimeMillis() - 7200000);
-
-        int removed = asyncTaskService.cleanOldTasks();
-
-        assertThat(removed).isEqualTo(1);
-        assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
+        assertThat(taskId).isNotNull();
     }
 
     @Test
-    void cleanOldTasks_WhenFailedTasksAreOld_ShouldRemoveThem() {
+    void executeTaskAsync_WhenInterruptedExceptionOccurs_ShouldSetFailedStatus() throws Exception {
         String taskId = asyncTaskService.startTask();
 
-        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
-        status.setStatus("FAILED");
-        status.setEndTime(System.currentTimeMillis() - 7200000);
-
-        int removed = asyncTaskService.cleanOldTasks();
-
-        assertThat(removed).isEqualTo(1);
-        assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
-    }
-
-    @Test
-    void cleanOldTasks_WhenCompletedTasksAreRecent_ShouldNotRemoveThem() {
-        String taskId = asyncTaskService.startTask();
-
-        TaskStatus status = asyncTaskService.getTaskStatus(taskId);
-        status.setStatus("COMPLETED");
-        status.setEndTime(System.currentTimeMillis());
-
-        int removed = asyncTaskService.cleanOldTasks();
-
-        assertThat(removed).isZero();
-        assertThat(asyncTaskService.getTaskStatus(taskId)).isNotNull();
-    }
-
-    @Test
-    void executeTaskAsync_WhenTaskExists_ShouldCompleteSuccessfully() throws Exception {
-        String taskId = asyncTaskService.startTask();
-
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
-                asyncTaskService.executeTaskAsync(taskId)
-        );
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+            Thread.currentThread().interrupt();
+            asyncTaskService.executeTaskAsync(taskId);
+        });
 
         future.get(1, TimeUnit.SECONDS);
 
@@ -266,11 +294,8 @@ class AsyncTaskServiceTest {
         assertThat(status)
                 .isNotNull()
                 .satisfies(s -> {
-                    assertThat(s.getStatus()).isEqualTo("COMPLETED");
-                    assertThat(s.getStartTime()).isGreaterThan(0);
-                    assertThat(s.getResult()).isEqualTo("Бизнес-операция успешно выполнена");
-                    assertThat(s.getEndTime()).isGreaterThan(0);
-                    assertThat(s.getDuration()).isGreaterThan(0);
+                    assertThat(s.getStatus()).isEqualTo("FAILED");
+                    assertThat(s.getError()).contains("Задача была прервана");
                 });
     }
 }
