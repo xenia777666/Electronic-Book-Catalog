@@ -1,6 +1,7 @@
 package com.example.libraryapp.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -15,7 +16,7 @@ public class AsyncTaskService {
 
     private final Map<String, TaskStatus> taskStatuses = new ConcurrentHashMap<>();
     private final AtomicLong taskCounter = new AtomicLong(0);
-    private AsyncTaskService self;
+    private final AsyncTaskService self;
 
     private static final String STATUS_PENDING = "PENDING";
     private static final String STATUS_RUNNING = "RUNNING";
@@ -23,26 +24,14 @@ public class AsyncTaskService {
     private static final String STATUS_FAILED = "FAILED";
 
     private boolean testMode = false;
-    private boolean throwTestException = false;
 
-    public AsyncTaskService() {
-        this.self = this;
-    }
-
+    @Autowired
     public AsyncTaskService(@Lazy AsyncTaskService self) {
-        this.self = self != null ? self : this;
-    }
-
-    public void setSelf(AsyncTaskService self) {
         this.self = self;
     }
 
     public void setTestMode(boolean testMode) {
         this.testMode = testMode;
-    }
-
-    public void setThrowTestException(boolean throwTestException) {
-        this.throwTestException = throwTestException;
     }
 
     public String startTask() {
@@ -52,7 +41,7 @@ public class AsyncTaskService {
         taskStatuses.put(taskId, status);
         log.info("Асинхронная задача {} создана (статус PENDING)", taskId);
 
-        if (!testMode && self != null) {
+        if (!testMode) {
             self.executeTaskAsync(taskId);
         }
 
@@ -73,9 +62,6 @@ public class AsyncTaskService {
         status.setStartTime(System.currentTimeMillis());
 
         try {
-            if (throwTestException) {
-                throw new RuntimeException("Simulated test exception");
-            }
             if (testMode) {
                 Thread.sleep(10);
             } else {
@@ -92,11 +78,6 @@ public class AsyncTaskService {
             status.setError("Задача была прервана: " + e.getMessage());
             status.setEndTime(System.currentTimeMillis());
             log.error("Асинхронная задача {} была прервана", taskId, e);
-        } catch (Exception e) {
-            status.setStatus(STATUS_FAILED);
-            status.setError("Ошибка выполнения: " + e.getMessage());
-            status.setEndTime(System.currentTimeMillis());
-            log.error("Ошибка в асинхронной задаче {}", taskId, e);
         }
     }
 

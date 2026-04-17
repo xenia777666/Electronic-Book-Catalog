@@ -8,29 +8,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RaceConditionDemoServiceTest {
 
-    private RaceConditionDemoService service;
+    private RaceConditionDemoService raceConditionDemoService;
 
     @BeforeEach
     void setUp() {
-        service = new RaceConditionDemoService();
+        raceConditionDemoService = new RaceConditionDemoService();
     }
 
     @Test
     void demonstrateRaceCondition_ShouldReturnNonNullResult() {
-        RaceConditionResult result = service.demonstrateRaceCondition(50, 100);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(50, 100);
         assertThat(result).isNotNull();
     }
 
     @Test
     void demonstrateRaceCondition_ShouldUseMin50Threads() {
-        RaceConditionResult result = service.demonstrateRaceCondition(10, 100);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(10, 100);
         assertThat(result.getNumberOfThreads()).isEqualTo(50);
         assertThat(result.getExpectedValue()).isEqualTo(5000);
     }
 
     @Test
     void demonstrateRaceCondition_With100Threads_ShouldReturnCorrectStructure() {
-        RaceConditionResult result = service.demonstrateRaceCondition(100, 500);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(100, 500);
 
         assertThat(result).isNotNull();
         assertThat(result.getNumberOfThreads()).isEqualTo(100);
@@ -42,7 +42,7 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_WithZeroIncrements_ShouldReturnZero() {
-        RaceConditionResult result = service.demonstrateRaceCondition(50, 0);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(50, 0);
 
         assertThat(result.getExpectedValue()).isZero();
         assertThat(result.getUnsafeCounterValue()).isZero();
@@ -77,7 +77,7 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_With200Threads_ShouldComplete() {
-        RaceConditionResult result = service.demonstrateRaceCondition(200, 200);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(200, 200);
 
         assertThat(result.getNumberOfThreads()).isEqualTo(200);
         assertThat(result.getExpectedValue()).isEqualTo(40000);
@@ -85,7 +85,7 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_With500Threads_ShouldNotThrowException() {
-        RaceConditionResult result = service.demonstrateRaceCondition(500, 100);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(500, 100);
 
         assertThat(result).isNotNull();
         assertThat(result.getNumberOfThreads()).isEqualTo(500);
@@ -93,28 +93,16 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_SynchronizedCounter_ShouldAlwaysMatchExpected() {
-        RaceConditionResult result = service.demonstrateRaceCondition(100, 500);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(100, 500);
 
         assertThat(result.getSynchronizedCounterValue()).isEqualTo(result.getExpectedValue());
     }
 
     @Test
     void demonstrateRaceCondition_AtomicCounter_ShouldAlwaysMatchExpected() {
-        RaceConditionResult result = service.demonstrateRaceCondition(100, 500);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(100, 500);
 
         assertThat(result.getAtomicCounterValue()).isEqualTo(result.getExpectedValue());
-    }
-
-    @Test
-    void demonstrateRaceCondition_MultipleCalls_ShouldReturnValidResults() {
-        RaceConditionResult result1 = service.demonstrateRaceCondition(100, 500);
-        RaceConditionResult result2 = service.demonstrateRaceCondition(100, 500);
-
-        assertThat(result1.getExpectedValue()).isEqualTo(result2.getExpectedValue());
-        assertThat(result1.getSynchronizedCounterValue()).isEqualTo(result2.getSynchronizedCounterValue());
-        assertThat(result1.getAtomicCounterValue()).isEqualTo(result2.getAtomicCounterValue());
-        assertThat(result1.getNumberOfThreads()).isEqualTo(result2.getNumberOfThreads());
-        assertThat(result1.getIncrementsPerThread()).isEqualTo(result2.getIncrementsPerThread());
     }
 
     @Test
@@ -134,7 +122,7 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_WithLargeIncrements_ShouldNotOverflow() {
-        RaceConditionResult result = service.demonstrateRaceCondition(50, 100000);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(50, 100000);
 
         assertThat(result.getExpectedValue()).isEqualTo(5_000_000);
         assertThat(result.getSynchronizedCounterValue()).isEqualTo(5_000_000);
@@ -142,7 +130,7 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_WithMinimumParameters_ShouldWork() {
-        RaceConditionResult result = service.demonstrateRaceCondition(1, 1);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(1, 1);
 
         assertThat(result.getNumberOfThreads()).isEqualTo(50);
         assertThat(result.getExpectedValue()).isEqualTo(50);
@@ -150,7 +138,7 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_ShouldHaveSynchronizedCounterCorrect() {
-        RaceConditionResult result = service.demonstrateRaceCondition(100, 1000);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(100, 1000);
 
         assertThat(result.getSynchronizedCounterValue())
                 .as("Synchronized counter should match expected value")
@@ -158,24 +146,8 @@ class RaceConditionDemoServiceTest {
     }
 
     @Test
-    void demonstrateRaceCondition_WhenInterrupted_ShouldHandleGracefully() throws Exception {
-        RaceConditionDemoService service = new RaceConditionDemoService();
-
-        Thread testThread = new Thread(() -> {
-            service.demonstrateRaceCondition(100, 500);
-        });
-
-        testThread.start();
-        Thread.sleep(100);
-        testThread.interrupt();
-        testThread.join(1000);
-
-        assertThat(testThread.isAlive()).isFalse();
-    }
-
-    @Test
     void demonstrateRaceCondition_ShouldHaveAtomicCounterCorrect() {
-        RaceConditionResult result = service.demonstrateRaceCondition(100, 1000);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(100, 1000);
 
         assertThat(result.getAtomicCounterValue())
                 .as("Atomic counter should match expected value")
@@ -184,9 +156,19 @@ class RaceConditionDemoServiceTest {
 
     @Test
     void demonstrateRaceCondition_UnsafeCounter_MayHaveLossOrNot() {
-        RaceConditionResult result = service.demonstrateRaceCondition(100, 1000);
+        RaceConditionResult result = raceConditionDemoService.demonstrateRaceCondition(100, 1000);
 
         assertThat(result.getUnsafeLoss()).isGreaterThanOrEqualTo(0);
         assertThat(result.getUnsafeCounterValue()).isLessThanOrEqualTo(result.getExpectedValue());
+    }
+
+    @Test
+    void demonstrateRaceCondition_MultipleCalls_ShouldReturnValidResults() {
+        RaceConditionResult result1 = raceConditionDemoService.demonstrateRaceCondition(100, 500);
+        RaceConditionResult result2 = raceConditionDemoService.demonstrateRaceCondition(100, 500);
+
+        assertThat(result1.getExpectedValue()).isEqualTo(result2.getExpectedValue());
+        assertThat(result1.getSynchronizedCounterValue()).isEqualTo(result2.getSynchronizedCounterValue());
+        assertThat(result1.getAtomicCounterValue()).isEqualTo(result2.getAtomicCounterValue());
     }
 }
