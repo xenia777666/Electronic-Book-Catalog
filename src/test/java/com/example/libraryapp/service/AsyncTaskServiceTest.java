@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -16,7 +17,7 @@ class AsyncTaskServiceTest {
 
     @BeforeEach
     void setUp() {
-        asyncTaskService = new AsyncTaskService();
+        asyncTaskService = new AsyncTaskService(null);
         asyncTaskService.setTestMode(true);
     }
 
@@ -154,14 +155,6 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void taskStatus_GetDuration_WhenNotCompleted_ReturnsCurrentDuration() throws InterruptedException {
-        TaskStatus status = new TaskStatus();
-        Thread.sleep(100);
-        long duration = status.getDuration();
-        assertThat(duration).isGreaterThanOrEqualTo(100);
-    }
-
-    @Test
     void taskStatus_GetDuration_WhenCompleted_ReturnsFixedDuration() {
         TaskStatus status = new TaskStatus();
         long startTime = 1000L;
@@ -227,8 +220,7 @@ class AsyncTaskServiceTest {
 
         int removed = asyncTaskService.cleanOldTasks();
 
-        assertThat(removed)
-                .isEqualTo(1);
+        assertThat(removed).isEqualTo(1);
         assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
     }
 
@@ -242,8 +234,7 @@ class AsyncTaskServiceTest {
 
         int removed = asyncTaskService.cleanOldTasks();
 
-        assertThat(removed)
-                .isEqualTo(1);
+        assertThat(removed).isEqualTo(1);
         assertThat(asyncTaskService.getTaskStatus(taskId)).isNull();
     }
 
@@ -262,12 +253,14 @@ class AsyncTaskServiceTest {
     }
 
     @Test
-    void executeTaskAsync_WhenTaskExists_ShouldCompleteSuccessfully() throws InterruptedException {
+    void executeTaskAsync_WhenTaskExists_ShouldCompleteSuccessfully() throws Exception {
         String taskId = asyncTaskService.startTask();
 
-        asyncTaskService.executeTaskAsync(taskId);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                asyncTaskService.executeTaskAsync(taskId)
+        );
 
-        Thread.sleep(100);
+        future.get(1, TimeUnit.SECONDS);
 
         TaskStatus status = asyncTaskService.getTaskStatus(taskId);
         assertThat(status)

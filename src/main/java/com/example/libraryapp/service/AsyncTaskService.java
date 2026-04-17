@@ -1,6 +1,7 @@
 package com.example.libraryapp.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -14,14 +15,18 @@ public class AsyncTaskService {
 
     private final Map<String, TaskStatus> taskStatuses = new ConcurrentHashMap<>();
     private final AtomicLong taskCounter = new AtomicLong(0);
+    private final AsyncTaskService self;
 
     private static final String STATUS_PENDING = "PENDING";
     private static final String STATUS_RUNNING = "RUNNING";
     private static final String STATUS_COMPLETED = "COMPLETED";
     private static final String STATUS_FAILED = "FAILED";
 
-    // Флаг для тестов - отключает реальный sleep
     private boolean testMode = false;
+
+    public AsyncTaskService(@Lazy AsyncTaskService self) {
+        this.self = self;
+    }
 
     public void setTestMode(boolean testMode) {
         this.testMode = testMode;
@@ -35,7 +40,7 @@ public class AsyncTaskService {
         log.info("Асинхронная задача {} создана (статус PENDING)", taskId);
 
         if (!testMode) {
-            executeTaskAsync(taskId);
+            self.executeTaskAsync(taskId);  // через self, а не this!
         }
 
         return taskId;
@@ -56,9 +61,9 @@ public class AsyncTaskService {
 
         try {
             if (testMode) {
-                Thread.sleep(10); // В тестовом режиме спим 10 мс вместо 15 секунд
+                Thread.sleep(10);
             } else {
-                Thread.sleep(15000); // В реальном режиме 15 секунд
+                Thread.sleep(15000);
             }
             status.setStatus(STATUS_COMPLETED);
             status.setResult("Бизнес-операция успешно выполнена");
