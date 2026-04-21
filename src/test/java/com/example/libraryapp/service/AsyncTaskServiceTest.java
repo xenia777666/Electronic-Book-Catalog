@@ -10,7 +10,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -307,7 +306,7 @@ class AsyncTaskServiceTest {
         AsyncTaskService service = new AsyncTaskService(self);
         service.setTestMode(false);
         String taskId = service.startTask();
-        verify(self).executeTaskAsync(eq(taskId));
+        verify(self).executeTaskAsync(taskId);
     }
 
     @Test
