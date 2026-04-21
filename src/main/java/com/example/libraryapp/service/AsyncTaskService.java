@@ -14,9 +14,15 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 public class AsyncTaskService {
 
+    @FunctionalInterface
+    interface MillisSleeper {
+        void sleep(long millis) throws InterruptedException;
+    }
+
     private final Map<String, TaskStatus> taskStatuses = new ConcurrentHashMap<>();
     private final AtomicLong taskCounter = new AtomicLong(0);
     private final AsyncTaskService self;
+    private final MillisSleeper millisSleeper;
 
     private static final String STATUS_PENDING = "PENDING";
     private static final String STATUS_RUNNING = "RUNNING";
@@ -27,7 +33,12 @@ public class AsyncTaskService {
 
     @Autowired
     public AsyncTaskService(@Lazy AsyncTaskService self) {
+        this(self, Thread::sleep);
+    }
+
+    AsyncTaskService(AsyncTaskService self, MillisSleeper millisSleeper) {
         this.self = self;
+        this.millisSleeper = millisSleeper;
     }
 
     public void setTestMode(boolean testMode) {
@@ -63,9 +74,9 @@ public class AsyncTaskService {
 
         try {
             if (testMode) {
-                Thread.sleep(10);
+                millisSleeper.sleep(10);
             } else {
-                Thread.sleep(15000);
+                millisSleeper.sleep(15000);
             }
             status.setStatus(STATUS_COMPLETED);
             status.setResult("Бизнес-операция успешно выполнена");

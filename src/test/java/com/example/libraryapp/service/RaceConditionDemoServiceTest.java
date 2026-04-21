@@ -4,7 +4,18 @@ import com.example.libraryapp.service.RaceConditionDemoService.RaceConditionResu
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class RaceConditionDemoServiceTest {
 
@@ -170,5 +181,38 @@ class RaceConditionDemoServiceTest {
         assertThat(result1.getExpectedValue()).isEqualTo(result2.getExpectedValue());
         assertThat(result1.getSynchronizedCounterValue()).isEqualTo(result2.getSynchronizedCounterValue());
         assertThat(result1.getAtomicCounterValue()).isEqualTo(result2.getAtomicCounterValue());
+    }
+
+    @Test
+    void waitForCompletion_WhenAwaitTerminationReturnsFalse_ShouldShutdownNow() throws Exception {
+        RaceConditionDemoService service = new RaceConditionDemoService();
+        ExecutorService executor = mock(ExecutorService.class);
+        doNothing().when(executor).shutdown();
+        when(executor.awaitTermination(anyLong(), any())).thenReturn(false);
+        when(executor.shutdownNow()).thenReturn(Collections.emptyList());
+
+        Method m = RaceConditionDemoService.class.getDeclaredMethod("waitForCompletion", ExecutorService.class);
+        m.setAccessible(true);
+        m.invoke(service, executor);
+
+        verify(executor).shutdown();
+        verify(executor).awaitTermination(60, TimeUnit.SECONDS);
+        verify(executor).shutdownNow();
+    }
+
+    @Test
+    void waitForCompletion_WhenInterrupted_ShouldRestoreInterruptAndShutdownNow() throws Exception {
+        RaceConditionDemoService service = new RaceConditionDemoService();
+        ExecutorService executor = mock(ExecutorService.class);
+        doNothing().when(executor).shutdown();
+        when(executor.awaitTermination(anyLong(), any())).thenThrow(new InterruptedException());
+        when(executor.shutdownNow()).thenReturn(Collections.emptyList());
+
+        Method m = RaceConditionDemoService.class.getDeclaredMethod("waitForCompletion", ExecutorService.class);
+        m.setAccessible(true);
+        m.invoke(service, executor);
+
+        verify(executor).shutdownNow();
+        assertThat(Thread.interrupted()).isTrue();
     }
 }

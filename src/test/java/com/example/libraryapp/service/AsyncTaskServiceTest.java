@@ -10,6 +10,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class AsyncTaskServiceTest {
 
@@ -296,5 +299,30 @@ class AsyncTaskServiceTest {
     void constructor_WithNullSelf_ShouldWork() {
         AsyncTaskService service = new AsyncTaskService(null);
         assertThat(service).isNotNull();
+    }
+
+    @Test
+    void startTask_WhenTestModeFalse_ShouldDelegateToSelfForAsyncExecution() {
+        AsyncTaskService self = mock(AsyncTaskService.class);
+        AsyncTaskService service = new AsyncTaskService(self);
+        service.setTestMode(false);
+        String taskId = service.startTask();
+        verify(self).executeTaskAsync(eq(taskId));
+    }
+
+    @Test
+    void executeTaskAsync_WhenTestModeFalse_ShouldUseProductionSleepPathAndComplete() throws Exception {
+        AsyncTaskService self = mock(AsyncTaskService.class);
+        AsyncTaskService service = new AsyncTaskService(self, millis -> { });
+        service.setTestMode(false);
+        String taskId = service.startTask();
+
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> service.executeTaskAsync(taskId));
+        future.get(2, TimeUnit.SECONDS);
+
+        TaskStatus status = service.getTaskStatus(taskId);
+        assertThat(status)
+                .isNotNull()
+                .satisfies(s -> assertThat(s.getStatus()).isEqualTo("COMPLETED"));
     }
 }
