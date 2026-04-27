@@ -1,0 +1,11 @@
+{
+  "name": "library-app-frontend-assets",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/main/resources/static/styles.input.css -o ./src/main/resources/static/styles.css --minify",
+    "watch:css": "tailwindcss -i ./src/main/resources/static/styles.input.css -o ./src/main/resources/static/styles.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

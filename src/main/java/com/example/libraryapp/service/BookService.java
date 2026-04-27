@@ -7,9 +7,11 @@ import com.example.libraryapp.api.dto.BulkCreateResultDto;
 import com.example.libraryapp.api.mapper.BookMapper;
 import com.example.libraryapp.domain.Author;
 import com.example.libraryapp.domain.Book;
+import com.example.libraryapp.domain.Genre;
 import com.example.libraryapp.domain.Publisher;
 import com.example.libraryapp.repository.AuthorRepository;
 import com.example.libraryapp.repository.BookRepository;
+import com.example.libraryapp.repository.GenreRepository;
 import com.example.libraryapp.repository.PublisherRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,7 @@ public class BookService {
     private final BookRepository bookRepository;
     private final PublisherRepository publisherRepository;
     private final AuthorRepository authorRepository;
+    private final GenreRepository genreRepository;
     private final BookMapper bookMapper;
 
     @Transactional
@@ -385,6 +388,18 @@ public class BookService {
                 throw new EntityNotFoundException("Some authors not found");
             }
             book.setAuthors(authors);
+        }
+
+        if (dto.getGenreIds() != null) {
+            if (dto.getGenreIds().isEmpty()) {
+                book.setGenres(new HashSet<>());
+            } else {
+                Set<Genre> genres = new HashSet<>(genreRepository.findAllById(dto.getGenreIds()));
+                if (genres.size() != dto.getGenreIds().size()) {
+                    throw new EntityNotFoundException("Some genres not found");
+                }
+                book.setGenres(genres);
+            }
         }
     }
 }

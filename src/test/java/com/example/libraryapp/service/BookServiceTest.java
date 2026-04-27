@@ -7,9 +7,11 @@ import com.example.libraryapp.api.dto.BulkCreateResultDto;
 import com.example.libraryapp.api.mapper.BookMapper;
 import com.example.libraryapp.domain.Author;
 import com.example.libraryapp.domain.Book;
+import com.example.libraryapp.domain.Genre;
 import com.example.libraryapp.domain.Publisher;
 import com.example.libraryapp.repository.AuthorRepository;
 import com.example.libraryapp.repository.BookRepository;
+import com.example.libraryapp.repository.GenreRepository;
 import com.example.libraryapp.repository.PublisherRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +53,9 @@ class BookServiceTest {
     private AuthorRepository authorRepository;
 
     @Mock
+    private GenreRepository genreRepository;
+
+    @Mock
     private BookMapper bookMapper;
 
     @InjectMocks
@@ -63,6 +69,7 @@ class BookServiceTest {
     private BookResponseDto bookResponseDto;
     private Publisher publisher;
     private Author author;
+    private Genre genre;
     private Pageable pageable;
 
     @BeforeEach
@@ -74,6 +81,10 @@ class BookServiceTest {
         author = new Author();
         author.setId(1L);
         author.setName("Test Author");
+
+        genre = new Genre();
+        genre.setId(1L);
+        genre.setName("Test Genre");
 
         validBookDto = new BookDto();
         validBookDto.setIsbn("9785043333333");
@@ -838,6 +849,63 @@ class BookServiceTest {
         assertThatThrownBy(() -> bookService.createBook(invalidBookDto))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("Some authors not found");
+    }
+
+    @Test
+    void createBook_WithGenreIds_Success() {
+        validBookDto.setGenreIds(Set.of(1L));
+        when(bookRepository.findByIsbn(validBookDto.getIsbn())).thenReturn(Optional.empty());
+        when(bookMapper.toEntity(validBookDto)).thenReturn(book);
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(Set.of(1L))).thenReturn(List.of(author));
+        when(genreRepository.findAllById(Set.of(1L))).thenReturn(List.of(genre));
+        when(bookRepository.save(any(Book.class))).thenReturn(savedBook);
+        when(bookMapper.toDto(savedBook)).thenReturn(bookResponseDto);
+
+        BookResponseDto result = bookService.createBook(validBookDto);
+
+        assertThat(result).isNotNull();
+        verify(genreRepository).findAllById(Set.of(1L));
+    }
+
+    @Test
+    void createBook_WithPartialGenreIds_ThrowsEntityNotFound() {
+        validBookDto.setGenreIds(Set.of(1L, 2L));
+        when(bookRepository.findByIsbn(validBookDto.getIsbn())).thenReturn(Optional.empty());
+        when(bookMapper.toEntity(validBookDto)).thenReturn(book);
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(Set.of(1L))).thenReturn(List.of(author));
+        when(genreRepository.findAllById(Set.of(1L, 2L))).thenReturn(List.of(genre));
+
+        assertThatThrownBy(() -> bookService.createBook(validBookDto))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Some genres not found");
+
+        verify(bookRepository, never()).save(any(Book.class));
+    }
+
+    @Test
+    void updateBook_WithEmptyGenreIds_ClearsGenres() {
+        BookDto updateDto = new BookDto();
+        updateDto.setIsbn(book.getIsbn());
+        updateDto.setTitle("Updated Title");
+        updateDto.setDescription("Updated Description");
+        updateDto.setPublicationYear(2025);
+        updateDto.setPrice(new BigDecimal("600"));
+        updateDto.setPublisherId(1L);
+        updateDto.setAuthorIds(Set.of(1L));
+        updateDto.setGenreIds(Set.of());
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(publisherRepository.findById(1L)).thenReturn(Optional.of(publisher));
+        when(authorRepository.findAllById(Set.of(1L))).thenReturn(List.of(author));
+        when(bookRepository.save(any(Book.class))).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.updateBook(1L, updateDto);
+
+        verify(genreRepository, never()).findAllById(any());
+        verify(bookRepository).save(argThat(b -> b.getGenres() != null && b.getGenres().isEmpty()));
     }
 
     // ============ ТЕСТЫ ДЛЯ ПОЛНОГО ПОКРЫТИЯ СТРОКИ 83 (updateBook проверка ISBN) ============
