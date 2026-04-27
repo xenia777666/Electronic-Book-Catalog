@@ -1,11 +1,6 @@
 import { api } from './api.js';
 import { resetUiState, setState, state, subscribe } from './state.js';
-import {
-  average,
-  formatDate,
-  namesJoin,
-  byId,
-} from './utils/helpers.js';
+import { formatDate, namesJoin, byId } from './utils/helpers.js';
 import {
   formDataToObject,
   renderDrawer,
@@ -205,10 +200,9 @@ const entityConfigs = {
 };
 
 function parseRoute() {
-  const hash = window.location.hash.replace('#/', '') || 'dashboard';
-  return (
-    navItems.find((item) => item.key === hash)?.key || 'dashboard'
-  );
+  const hash = window.location.hash.replace('#/', '') || 'books';
+  const key = navItems.find((item) => item.key === hash)?.key;
+  return key || 'books';
 }
 
 function openEntityDrawer(editingId = null) {
@@ -337,86 +331,42 @@ function getVisibleRows(entity) {
   };
 }
 
-function dashboardTemplate() {
-  const booksCount =
-    state.meta.books.totalElements ?? state.data.books.length;
-  const authors = state.data.authors.length;
-  const genres = state.data.genres.length;
-  const reviews = state.data.reviews.length;
-  const prices = state.data.books
-    .map((b) => Number(b.price))
-    .filter((n) => Number.isFinite(n));
-  const avgPrice = average(prices);
-
-  return `<section class="grid gap-5 lg:grid-cols-3 mb-6">
-    <article class="card-base p-6 lg:col-span-2">
-      <h3 class="text-base font-semibold text-slate-900">Каталог книг</h3>
-      <p class="mt-2 text-sm text-slate-600">Панель в стиле <a class="text-indigo-600 underline" href="https://github.com/tecris-unk/school-project" target="_blank" rel="noopener">school-project</a>: навигация, таблицы, выдвижная форма, Tailwind CSS.</p>
-      <div class="mt-5 grid gap-3 sm:grid-cols-2">
-        <div class="rounded-xl bg-slate-50 p-4"><p class="text-xs uppercase tracking-wide text-slate-500">Книг (всего)</p><p class="mt-1 text-sm font-semibold text-slate-800">${booksCount}</p></div>
-        <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs uppercase tracking-wide text-slate-500">Авторов</p><p class="mt-1 text-sm font-semibold text-slate-800">${authors}</p></div>
-        <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs uppercase tracking-wide text-slate-500">Жанров</p><p class="mt-1 text-sm font-semibold text-slate-800">${genres}</p></div>
-        <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs uppercase tracking-wide text-slate-500">Отзывов</p><p class="mt-1 text-sm font-semibold text-slate-800">${reviews}</p></div>
-      </div>
-    </article>
-    <article class="card-base p-6">
-      <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Средняя цена</h3>
-      <p class="mt-2 text-2xl font-semibold text-slate-900">${avgPrice.toFixed(2)}</p>
-      <p class="mt-3 text-xs text-slate-500">По загруженному списку книг текущей страницы / фильтра.</p>
-    </article>
-  </section>`;
-}
-
-function renderBookRelationsMatrix() {
-  const rows = state.data.books;
-  return `<section class="mt-5 card-base overflow-hidden"><div class="p-5 border-b border-slate-100"><h3 class="text-base font-semibold text-slate-900">Связи Many-to-Many / One-to-Many</h3><p class="text-sm text-slate-500 mt-1">Книга ↔ авторы и жанры; отзывы привязаны к книге (One-to-Many).</p></div>
-  <table class="w-full"><thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left text-xs uppercase text-slate-500">Книга</th><th class="px-4 py-3 text-left text-xs uppercase text-slate-500">Издатель</th><th class="px-4 py-3 text-left text-xs uppercase text-slate-500">Авторы</th><th class="px-4 py-3 text-left text-xs uppercase text-slate-500">Жанры</th><th class="px-4 py-3 text-left text-xs uppercase text-slate-500">Отзывы</th></tr></thead>
-  <tbody>${rows
-    .map(
-      (b) =>
-        `<tr class="border-t border-slate-100"><td class="px-4 py-3 text-sm font-medium text-slate-800">${b.title}</td><td class="px-4 py-3 text-sm text-slate-700">${b.publisher?.name ?? '—'}</td><td class="px-4 py-3 text-sm text-slate-700">${namesJoin(b.authors)}</td><td class="px-4 py-3 text-sm text-slate-700">${namesJoin(b.genres)}</td><td class="px-4 py-3 text-sm text-slate-700">${b.reviews?.length ?? 0}</td></tr>`,
-    )
-    .join('')}</tbody></table></section>`;
+function escAttr(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
 function booksServerFilterPanel() {
   const f = state.ui.bookFilter;
-  return `<div class="card-base p-5 mb-5 space-y-4">
-    <h3 class="text-sm font-semibold text-slate-900">Фильтр через API <code class="text-xs bg-slate-100 px-1 rounded">/api/books/search/complex</code></h3>
+  return `<div class="card-base p-4 mb-4">
+    <div class="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Книги — поиск API</div>
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <label class="text-sm text-slate-700">Автор<input class="input-base mt-1" data-bf="author" value="${f.author}" /></label>
-      <label class="text-sm text-slate-700">Жанр<input class="input-base mt-1" data-bf="genre" value="${f.genre}" /></label>
-      <label class="text-sm text-slate-700">Издатель<input class="input-base mt-1" data-bf="publisher" value="${f.publisher}" /></label>
-      <label class="text-sm text-slate-700">Цена от<input class="input-base mt-1" data-bf="minPrice" value="${f.minPrice}" /></label>
-      <label class="text-sm text-slate-700">Цена до<input class="input-base mt-1" data-bf="maxPrice" value="${f.maxPrice}" /></label>
-      <label class="text-sm text-slate-700">Рейтинг от<input class="input-base mt-1" data-bf="minRating" value="${f.minRating}" /></label>
+      <label class="text-sm text-zinc-700">Автор<input class="input-base mt-1" data-bf="author" value="${escAttr(f.author)}" /></label>
+      <label class="text-sm text-zinc-700">Жанр<input class="input-base mt-1" data-bf="genre" value="${escAttr(f.genre)}" /></label>
+      <label class="text-sm text-zinc-700">Издатель<input class="input-base mt-1" data-bf="publisher" value="${escAttr(f.publisher)}" /></label>
+      <label class="text-sm text-zinc-700">Цена от<input class="input-base mt-1" data-bf="minPrice" value="${escAttr(f.minPrice)}" /></label>
+      <label class="text-sm text-zinc-700">Цена до<input class="input-base mt-1" data-bf="maxPrice" value="${escAttr(f.maxPrice)}" /></label>
+      <label class="text-sm text-zinc-700">Рейтинг от<input class="input-base mt-1" data-bf="minRating" value="${escAttr(f.minRating)}" /></label>
     </div>
-    <div class="flex flex-wrap gap-2">
-      <button type="button" class="btn-primary" data-books-search>Искать</button>
-      <button type="button" class="btn-secondary" data-books-search-reset>Сбросить (пагинация API)</button>
+    <div class="mt-4 flex flex-wrap gap-2">
+      <button type="button" class="btn-primary" data-books-search>Найти</button>
+      <button type="button" class="btn-secondary" data-books-search-reset>Сброс</button>
     </div>
   </div>`;
 }
 
 function shellTemplate(content) {
   return `
-    <div class="h-screen overflow-hidden bg-slate-100 flex flex-col">
-      <header class="z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-4 md:px-6 lg:px-8">
-          <div class="flex items-center gap-3">
-            <div class="h-11 w-11 rounded-xl border border-slate-200 bg-indigo-50 flex items-center justify-center text-indigo-700 font-bold text-sm">К</div>
-            <div>
-              <h1 class="text-lg font-semibold tracking-tight text-slate-900">Электронный каталог книг</h1>
-              <p class="text-sm text-slate-500">SPA без фреймворков — как в репозитории-примере.</p>
-            </div>
-          </div>
+    <div class="flex min-h-screen flex-col bg-zinc-950">
+      <header class="shrink-0 border-b border-zinc-800 bg-zinc-900 px-4 py-3 md:px-6">
+        <div class="mx-auto flex max-w-[1700px] items-baseline gap-3">
+          <h1 class="text-base font-bold tracking-tight text-amber-400 md:text-lg">Каталог</h1>
         </div>
       </header>
-      <main class="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 gap-0 md:grid-cols-[260px_minmax(0,1fr)]">
-        <aside class="h-full overflow-y-auto border-r border-slate-200 bg-white p-4 md:p-5">
+      <main class="mx-auto flex min-h-0 w-full max-w-[1700px] flex-1 flex-col md:flex-row">
+        <aside class="shrink-0 border-zinc-800 bg-zinc-900 px-3 py-3 md:w-56 md:border-r md:py-5">
           <div id="shell-nav"></div>
         </aside>
-        <section class="min-w-0 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <section class="min-h-0 min-w-0 flex-1 overflow-y-auto bg-zinc-100 p-4 md:p-8">
           <div id="shell-content">${content}</div>
         </section>
       </main>
@@ -440,7 +390,7 @@ function ensureShell(content = '') {
 
 function renderEntityDetails(entity, row) {
   if (!row) {
-    return '<p class="text-slate-500">Нет данных.</p>';
+    return '<p class="text-zinc-500">Нет данных.</p>';
   }
   if (entity === 'books') {
     const revs = row.reviews?.length
@@ -450,14 +400,14 @@ function renderEntityDetails(entity, row) {
               `<li>${r.rating}★ ${r.reviewerName || ''}: ${r.comment || '—'}</li>`,
           )
           .join('')}</ul>`
-      : '<p class="text-slate-500">Нет отзывов</p>';
-    return `<div class="space-y-3">
-      <p><strong>ISBN:</strong> ${row.isbn}</p>
-      <p><strong>Название:</strong> ${row.title}</p>
-      <p><strong>Издатель (Many-to-One):</strong> ${row.publisher?.name ?? '—'}</p>
-      <p><strong>Авторы (Many-to-Many):</strong> ${namesJoin(row.authors)}</p>
-      <p><strong>Жанры (Many-to-Many):</strong> ${namesJoin(row.genres)}</p>
-      <div><strong>Отзывы (One-to-Many):</strong>${revs}</div>
+      : '<p class="text-zinc-500">Нет отзывов</p>';
+    return `<div class="space-y-2 text-sm">
+      <p><span class="text-zinc-500">ISBN</span> ${row.isbn}</p>
+      <p><span class="text-zinc-500">Название</span> ${row.title}</p>
+      <p><span class="text-zinc-500">Издатель</span> ${row.publisher?.name ?? '—'}</p>
+      <p><span class="text-zinc-500">Авторы</span> ${namesJoin(row.authors)}</p>
+      <p><span class="text-zinc-500">Жанры</span> ${namesJoin(row.genres)}</p>
+      <div><span class="text-zinc-500">Отзывы</span>${revs}</div>
     </div>`;
   }
   if (entity === 'reviews') {
@@ -467,24 +417,6 @@ function renderEntityDetails(entity, row) {
 }
 
 function render() {
-  const activeElement = document.activeElement;
-  const shouldRestoreSearchFocus = activeElement?.id === 'search-input';
-  const searchSelectionStart = shouldRestoreSearchFocus
-    ? activeElement.selectionStart
-    : null;
-  const searchSelectionEnd = shouldRestoreSearchFocus
-    ? activeElement.selectionEnd
-    : null;
-
-  if (state.route === 'dashboard') {
-    ensureShell(dashboardTemplate());
-    const navRoot = document.getElementById('shell-nav');
-    if (navRoot) {
-      navRoot.innerHTML = renderNav(state.route);
-    }
-    return;
-  }
-
   const config = entityConfigs[state.route];
   const { rows, allFiltered, meta } = getVisibleRows(state.route);
   const editingRow = byId(state.data[state.route], state.ui.editingId);
@@ -500,23 +432,16 @@ function render() {
     state.ui.formErrors,
   );
 
-  const drawerTitle = `${state.ui.editingId ? 'Редактирование' : 'Создание'}: ${config.title}`;
+  const drawerTitle = `${state.ui.editingId ? 'Изменить' : 'Создать'} · ${config.title}`;
 
   const bookExtras =
-    state.route === 'books'
-      ? `${booksServerFilterPanel()}<section class="mb-5"><button type="button" data-toggle-book-matrix class="btn-secondary">${state.ui.bookMatrixVisible ? 'Скрыть матрицу связей' : 'Показать матрицу связей'}</button>${state.ui.bookMatrixVisible ? renderBookRelationsMatrix() : ''}</section>`
-      : '';
+    state.route === 'books' ? booksServerFilterPanel() : '';
 
   const content = `
-    <section class="space-y-6">
-      <div class="card-base p-6">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="text-2xl font-semibold tracking-tight text-slate-900">${config.title}</h2>
-            <p class="mt-1 text-sm text-slate-500">CRUD и фильтрация. Для книг — серверный сложный поиск.</p>
-          </div>
-          ${canEdit ? `<button data-create-entity class="btn-primary" aria-label="${CREATE_ACTION_LABEL}">${CREATE_ACTION_LABEL}</button>` : ''}
-        </div>
+    <section class="space-y-4">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 class="text-xl font-semibold tracking-tight text-zinc-900">${config.title}</h2>
+        ${canEdit ? `<button type="button" data-create-entity class="btn-primary shrink-0" aria-label="${CREATE_ACTION_LABEL}">${CREATE_ACTION_LABEL}</button>` : ''}
       </div>
       ${bookExtras}
       ${renderTable({
@@ -535,7 +460,6 @@ function render() {
       })}
       ${renderDrawer({
         title: drawerTitle,
-        subtitle: 'Заполните форму справа',
         body: drawerBody,
         open: state.ui.drawerOpen,
       })}
@@ -548,38 +472,16 @@ function render() {
   }
   bindEntityHandlers(config, allFiltered, rows, meta);
   bindBooksFilterHandlers();
-  bindBookMatrixToggle();
-
-  if (shouldRestoreSearchFocus) {
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) {
-      searchInput.focus();
-      if (searchSelectionStart !== null && searchSelectionEnd !== null) {
-        searchInput.setSelectionRange(
-          searchSelectionStart,
-          searchSelectionEnd,
-        );
-      }
-    }
-  }
-}
-
-function bindBookMatrixToggle() {
-  document.querySelector('[data-toggle-book-matrix]')?.addEventListener('click', () => {
-    setState((s) => {
-      s.ui.bookMatrixVisible = !s.ui.bookMatrixVisible;
-    });
-  });
 }
 
 function bindBooksFilterHandlers() {
   document.querySelectorAll('[data-bf]').forEach((el) => {
     el.addEventListener('input', (e) => {
       const key = e.target.getAttribute('data-bf');
-      const val = e.target.value;
-      setState((s) => {
-        s.ui.bookFilter[key] = val;
-      });
+      if (!key) {
+        return;
+      }
+      state.ui.bookFilter[key] = e.target.value;
     });
   });
   document.querySelector('[data-books-search]')?.addEventListener('click', async () => {
@@ -604,7 +506,7 @@ function bindBooksFilterHandlers() {
           Math.ceil(items.length / s.meta.books.size),
         );
       });
-      notify(`Найдено записей: ${items.length}`, 'success');
+      notify(`Найдено: ${items.length}`, 'success');
     } catch (e) {
       notify(e.message, 'error');
     }
@@ -626,7 +528,7 @@ function bindBooksFilterHandlers() {
         s.meta.books.pageable = true;
       });
       await loadEntity('books', true);
-      notify('Снова загружен список с пагинацией API', 'info');
+      notify('Список обновлён', 'info');
     });
 }
 
@@ -704,15 +606,6 @@ function bindEntityHandlers(config, allFiltered, displayedRows, meta) {
         title: `Просмотр: ${config.title}`,
         body: renderEntityDetails(state.route, row),
       });
-    });
-  });
-
-  document.getElementById('search-input')?.addEventListener('input', (e) => {
-    state.ui.search = e.target.value;
-    state.meta[state.route].page = 0;
-    setState((s) => {
-      s.ui.search = e.target.value;
-      s.meta[s.route].page = 0;
     });
   });
 
@@ -872,15 +765,7 @@ async function routeChanged() {
 
   try {
     await loadRefs();
-    if (route === 'dashboard') {
-      await Promise.all([
-        loadEntity('books', true),
-        loadEntity('publishers', true),
-        loadEntity('authors', true),
-        loadEntity('genres', true),
-        loadEntity('reviews', true),
-      ]);
-    } else if (entityConfigs[route]) {
+    if (entityConfigs[route]) {
       await loadEntity(route, true);
     }
   } catch (error) {
@@ -894,7 +779,7 @@ subscribe(render);
 window.addEventListener('hashchange', () => routeChanged());
 
 if (!window.location.hash) {
-  window.location.hash = '#/dashboard';
+  window.location.hash = '#/books';
 } else {
   routeChanged();
 }

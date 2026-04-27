@@ -1,7 +1,7 @@
 const listeners = new Set();
 
 export const state = {
-  route: 'dashboard',
+  route: 'books',
   loading: false,
   refs: {
     publishers: [],
@@ -54,14 +54,12 @@ export const state = {
     },
   },
   ui: {
-    search: '',
     filters: {},
     sort: { key: 'id', dir: 'desc' },
     selectedIds: new Set(),
     editingId: null,
     drawerOpen: false,
     formErrors: {},
-    bookMatrixVisible: false,
     booksServerFilter: false,
     bookFilter: {
       author: '',
@@ -86,14 +84,12 @@ export function setState(mutator) {
 
 export function resetUiState() {
   setState((s) => {
-    s.ui.search = '';
     s.ui.filters = {};
     s.ui.sort = { key: 'id', dir: 'desc' };
     s.ui.selectedIds = new Set();
     s.ui.editingId = null;
     s.ui.drawerOpen = false;
     s.ui.formErrors = {};
-    s.ui.bookMatrixVisible = false;
     s.ui.booksServerFilter = false;
     s.ui.bookFilter = {
       author: '',

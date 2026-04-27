@@ -13,18 +13,6 @@ function renderCell(entity, column, row, refs, data) {
 export function applyQuery(items, config, ui, refs = {}, data = {}) {
   let result = [...items];
 
-  if (ui.search) {
-    const needle = ui.search.toLowerCase();
-    result = result.filter((item) =>
-      config.columns.some((col) => {
-        const cell = col.render
-          ? col.render(item, refs, data)
-          : item[col.key];
-        return String(cell ?? '').toLowerCase().includes(needle);
-      }),
-    );
-  }
-
   Object.entries(ui.filters || {}).forEach(([key, value]) => {
     if (value !== null && value !== undefined && value !== '') {
       result = result.filter(
@@ -54,22 +42,18 @@ export function paginate(items, page = 0, size = 10) {
 }
 
 function renderSkeleton(cols) {
-  return Array.from({ length: 6 }, (_, rowIndex) => `<tr class="border-b border-slate-100">${Array.from(
+  return Array.from({ length: 6 }, (_, rowIndex) => `<tr class="border-b border-zinc-100">${Array.from(
     { length: cols },
     () =>
-      `<td class="px-6 py-4"><div class="h-4 rounded bg-slate-200/80 animate-pulse ${rowIndex % 2 === 0 ? 'w-full' : 'w-4/5'}"></div></td>`,
+      `<td class="px-4 py-3"><div class="h-3.5 rounded bg-zinc-200 animate-pulse ${rowIndex % 2 === 0 ? 'w-full' : 'w-4/5'}"></div></td>`,
   ).join('')}</tr>`).join('');
 }
 
-function emptyState(config, canCreate, hasQuery) {
+function emptyState(config, canCreate, hasFilters) {
   return `
-    <div class="flex min-h-[360px] flex-col items-center justify-center px-6 py-10 text-center">
-      <div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-        <span class="text-xl">📄</span>
-      </div>
-      <h3 class="text-base font-semibold text-slate-900">${hasQuery ? 'Ничего не найдено' : 'Пока нет записей'}</h3>
-      <p class="mt-1 max-w-sm text-sm text-slate-500">${hasQuery ? 'Попробуйте очистить поиск или фильтры.' : 'Добавьте первую запись, чтобы начать работу с разделом.'}</p>
-      ${canCreate ? `<button data-create-entity class="btn-primary mt-5" aria-label="${CREATE_ACTION_LABEL}">${CREATE_ACTION_LABEL}</button>` : ''}
+    <div class="flex min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
+      <h3 class="text-sm font-medium text-zinc-700">${hasFilters ? 'Нет данных' : 'Нет записей'}</h3>
+      ${canCreate ? `<button data-create-entity class="btn-primary mt-4" aria-label="${CREATE_ACTION_LABEL}">${CREATE_ACTION_LABEL}</button>` : ''}
     </div>`;
 }
 
@@ -95,7 +79,7 @@ export function renderTable({
     .map((col) => {
       const active = ui.sort.key === col.key;
       const arrow = active ? (ui.sort.dir === 'asc' ? '↑' : '↓') : '↕';
-      return `<th data-sort="${col.key}" class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 cursor-pointer hover:text-slate-900">${col.label} <span class="text-slate-400">${arrow}</span></th>`;
+      return `<th data-sort="${col.key}" class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:text-zinc-900">${col.label} <span class="text-zinc-400">${arrow}</span></th>`;
     })
     .join('');
 
@@ -109,15 +93,15 @@ export function renderTable({
         const cells = config.columns
           .map(
             (column) =>
-              `<td class="px-6 py-4 align-middle text-sm text-slate-700">${renderCell(entity, column, row, refs, data)}</td>`,
+              `<td class="px-4 py-3 align-middle text-sm text-zinc-800">${renderCell(entity, column, row, refs, data)}</td>`,
           )
           .join('');
-        return `<tr data-table-row class="border-b border-slate-100 hover:bg-indigo-50/40 transition-colors ${index % 2 ? 'bg-slate-50/20' : ''}">
-                ${canDelete ? `<td class="px-6 py-4 align-middle"><input data-select-id="${row.id}" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" ${isSelected ? 'checked' : ''} /></td>` : ''}
+        return `<tr data-table-row class="border-b border-zinc-100 transition-colors hover:bg-amber-500/5 ${index % 2 ? 'bg-zinc-50/50' : ''}">
+                ${canDelete ? `<td class="px-4 py-3 align-middle"><input data-select-id="${row.id}" type="checkbox" class="h-4 w-4 rounded border-zinc-300 text-amber-600 focus:ring-amber-500/40" ${isSelected ? 'checked' : ''} /></td>` : ''}
             ${cells}
-            ${canEdit || canDelete ? `<td class="px-6 py-4 align-middle"><div class="flex items-center justify-end gap-2 whitespace-nowrap">
+            ${canEdit || canDelete ? `<td class="px-4 py-3 align-middle"><div class="flex items-center justify-end gap-2 whitespace-nowrap">
               ${canEdit ? `<button data-view-id="${row.id}" class="btn-secondary text-xs">Просмотр</button>` : ''}
-              ${canEdit ? `<button data-edit-id="${row.id}" class="btn-secondary text-xs">Редактировать</button>` : ''}
+              ${canEdit ? `<button data-edit-id="${row.id}" class="btn-secondary text-xs">Изменить</button>` : ''}
               ${canDelete ? `<button data-delete-id="${row.id}" class="btn-danger text-xs">Удалить</button>` : ''}
             </div></td>` : ''}
         </tr>`;
@@ -131,50 +115,47 @@ export function renderTable({
 
   const filterBlock =
     config.filters?.length > 0
-      ? `<div class="grid gap-3 sm:grid-cols-2 lg:col-span-5">
+      ? `<div class="flex flex-wrap items-end gap-3">
             ${config.filters
               .map(
                 (filter) =>
-                  `<select data-filter-key="${filter.key}" class="input-base"><option value="">${filter.label}: все</option>${filter.options(refs, data).map((opt) => `<option ${String(ui.filters[filter.key] || '') === String(opt.value) ? 'selected' : ''} value="${opt.value}">${opt.label}</option>`).join('')}</select>`,
+                  `<label class="min-w-[160px] flex-1 text-xs font-medium text-zinc-600">${filter.label}<select data-filter-key="${filter.key}" class="input-base mt-1"><option value="">Все</option>${filter.options(refs, data).map((opt) => `<option ${String(ui.filters[filter.key] || '') === String(opt.value) ? 'selected' : ''} value="${opt.value}">${opt.label}</option>`).join('')}</select></label>`,
               )
               .join('')}
           </div>`
-      : `<div class="lg:col-span-5"></div>`;
+      : '';
+
+  const hasToolbar = Boolean(filterBlock) || canDelete;
+  const toolbar = hasToolbar
+    ? `<div class="flex flex-col gap-3 border-b border-zinc-200 bg-white px-4 py-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+          ${filterBlock || '<span class="min-w-0 flex-1"></span>'}
+          ${canDelete ? `<button type="button" id="bulk-delete" class="btn-danger shrink-0 self-start sm:self-end" ${ui.selectedIds.size ? '' : 'disabled'}>Удалить (${ui.selectedIds.size})</button>` : ''}
+        </div>`
+    : '';
 
   return `
-                <section class="card-base overflow-hidden">
-                <div class="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
-               <div class="grid gap-3 lg:grid-cols-12 lg:items-center">
-                <label class="relative block lg:col-span-5">
-                <span class="pointer-events-none absolute inset-y-0 left-3 inline-flex items-center text-slate-400">⌕</span>
-            <input id="search-input" value="${ui.search || ''}" placeholder="Поиск по таблице" class="input-base pl-9" />
-        </label>
-            ${filterBlock}
-           <div class="lg:col-span-2 lg:justify-self-end">
-            ${canDelete ? `<button id="bulk-delete" class="btn-danger w-full lg:w-auto" ${ui.selectedIds.size ? '' : 'disabled'}>Удалить выбранные (${ui.selectedIds.size})</button>` : ''}
-          </div>
-        </div>
-        </div>
-                ${!hasRows && !loading ? `<div class="px-5 py-6 sm:px-6">${emptyState(config, canEdit, Boolean(ui.search) || Object.values(ui.filters || {}).some(Boolean))}</div>` : `
+    <section class="card-base overflow-hidden">
+      ${toolbar}
+      ${!hasRows && !loading ? `<div class="px-4 py-6">${emptyState(config, canEdit, Object.values(ui.filters || {}).some(Boolean))}</div>` : `
       <div class="overflow-x-auto">
         <table class="min-w-full table-auto">
-          <thead class="border-b border-slate-200 bg-slate-50">
+          <thead class="border-b border-zinc-200 bg-zinc-50">
             <tr>
-              ${canDelete ? `<th class="px-6 py-4 text-left"><input id="select-all" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" ${hasRows && rows.every((r) => ui.selectedIds.has(r.id)) ? 'checked' : ''}/></th>` : ''}
+              ${canDelete ? `<th class="px-4 py-3 text-left"><input id="select-all" type="checkbox" class="h-4 w-4 rounded border-zinc-300 text-amber-600 focus:ring-amber-500/40" ${hasRows && rows.every((r) => ui.selectedIds.has(r.id)) ? 'checked' : ''}/></th>` : ''}
               ${headers}
-              ${canEdit || canDelete ? '<th class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Действия</th>' : ''}
+              ${canEdit || canDelete ? '<th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500"></th>' : ''}
             </tr>
           </thead>
           <tbody>${body}</tbody>
         </table>
       </div>`}
-                <div class="flex flex-col gap-3 border-t border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <span>Всего: ${meta.totalElements || 0}</span>
-                    <div class="flex items-center gap-2">
-                        <button data-page-action="prev" class="btn-secondary" ${meta.page <= 0 ? 'disabled' : ''}>Назад</button>
-                        <span class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5">Стр. ${meta.page + 1} / ${pages}</span>
-                        <button data-page-action="next" class="btn-secondary" ${meta.page + 1 >= pages ? 'disabled' : ''}>Вперёд</button>
-                    </div>
-                </div>
-            </section>`;
+      <div class="flex flex-col gap-2 border-t border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
+        <span>${meta.totalElements || 0} шт.</span>
+        <div class="flex items-center gap-2">
+          <button type="button" data-page-action="prev" class="btn-secondary" ${meta.page <= 0 ? 'disabled' : ''}>←</button>
+          <span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 tabular-nums">${meta.page + 1} / ${pages}</span>
+          <button type="button" data-page-action="next" class="btn-secondary" ${meta.page + 1 >= pages ? 'disabled' : ''}>→</button>
+        </div>
+      </div>
+    </section>`;
 }
