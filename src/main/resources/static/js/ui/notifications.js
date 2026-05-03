@@ -3,7 +3,7 @@ let container;
 function ensureContainer() {
   if (!container) {
     container = document.createElement('div');
-    container.className = 'fixed top-4 right-4 z-[60] space-y-2';
+    container.className = 'fixed top-4 right-4 z-[60] flex max-w-sm flex-col items-end space-y-2';
     document.body.appendChild(container);
   }
 }
@@ -13,12 +13,14 @@ export function notify(message, type = 'success') {
 
   const item = document.createElement('div');
   const colorMap = {
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    error: 'border-rose-200 bg-rose-50 text-rose-800',
-    info: 'border-sky-200 bg-sky-50 text-sky-800',
+    success:
+      'border-emerald-200/90 bg-white text-emerald-900 shadow-md shadow-zinc-900/10 ring-1 ring-emerald-500/15',
+    error:
+      'border-rose-200/90 bg-white text-rose-900 shadow-md shadow-zinc-900/10 ring-1 ring-rose-500/15',
+    info: 'border-zinc-200 bg-white text-zinc-800 shadow-md shadow-zinc-900/10 ring-1 ring-violet-500/10',
   };
 
-  item.className = `${colorMap[type] || colorMap.info} border px-4 py-3 rounded-xl shadow-lg text-sm min-w-72 transition duration-200`;
+  item.className = `${colorMap[type] || colorMap.info} border px-4 py-3 rounded-xl text-sm min-w-72 transition duration-200`;
   item.textContent = message;
   container.appendChild(item);
 
@@ -31,12 +33,12 @@ export function notify(message, type = 'success') {
 export function confirmModal({ title, description, onConfirm }) {
   const overlay = document.createElement('div');
   overlay.className =
-    'fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4';
+    'fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/45 p-4 backdrop-blur-[2px]';
 
   overlay.innerHTML = `
-    <div class="w-full max-w-md card-base p-6">
-      <h3 class="text-lg font-semibold text-slate-900 mb-2">${title}</h3>
-      <p class="text-sm text-slate-600 mb-6">${description}</p>
+    <div class="w-full max-w-md card-base p-6 shadow-xl shadow-zinc-900/15">
+      <h3 class="mb-2 text-lg font-semibold text-zinc-900">${title}</h3>
+      <p class="mb-6 text-sm text-zinc-600">${description}</p>
       <div class="flex justify-end gap-3">
         <button data-close class="btn-secondary">Отмена</button>
         <button data-confirm class="btn-danger">Удалить</button>
@@ -61,12 +63,12 @@ export function confirmModal({ title, description, onConfirm }) {
 export function infoModal({ title, body }) {
   const overlay = document.createElement('div');
   overlay.className =
-    'fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4';
+    'fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/45 p-4 backdrop-blur-[2px]';
 
   overlay.innerHTML = `
-    <div class="w-full max-w-lg card-base p-6 max-h-[85vh] overflow-y-auto">
-      <h3 class="text-lg font-semibold text-slate-900 mb-4">${title}</h3>
-      <div class="text-sm text-slate-700 prose prose-sm">${body}</div>
+    <div class="card-base max-h-[85vh] w-full max-w-lg overflow-y-auto p-6 shadow-xl shadow-zinc-900/15">
+      <h3 class="mb-4 text-lg font-semibold text-zinc-900">${title}</h3>
+      <div class="text-sm leading-relaxed text-zinc-700">${body}</div>
       <div class="mt-6 flex justify-end">
         <button data-close class="btn-primary">Закрыть</button>
       </div>

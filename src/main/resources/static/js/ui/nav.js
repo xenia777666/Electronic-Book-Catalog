@@ -15,13 +15,13 @@ export function renderNav(active) {
         .map((item) => {
           const activeClass =
             item.key === active
-              ? 'bg-amber-500 text-zinc-950 shadow-sm'
-              : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100';
+              ? 'bg-violet-600 text-white shadow-md shadow-black/20'
+              : 'text-zinc-400 hover:bg-zinc-800/80 hover:text-white';
           return `<a
             href="#/${item.key}"
             class="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:shrink ${activeClass}"
           >
-            <span class="shrink-0 opacity-80">${entityIcon(item.key)}</span>
+            <span class="shrink-0 ${item.key === active ? 'text-white' : 'text-violet-400'}">${entityIcon(item.key)}</span>
             <span>${item.label}</span>
           </a>`;
         })

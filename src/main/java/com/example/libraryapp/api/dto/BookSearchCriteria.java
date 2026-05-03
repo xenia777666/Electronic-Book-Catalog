@@ -13,7 +13,8 @@ import java.util.Objects;
 public class BookSearchCriteria {
     private String authorName;
     private String genreName;
-    private String publisherName;
+    /** Подстрока названия книги (поиск). */
+    private String title;
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
     private Double minRating;
@@ -22,7 +23,7 @@ public class BookSearchCriteria {
         return String.format("%s|%s|%s|%s|%s|%s",
                 nullSafeString(authorName),
                 nullSafeString(genreName),
-                nullSafeString(publisherName),
+                nullSafeString(title),
                 nullSafeBigDecimal(minPrice),
                 nullSafeBigDecimal(maxPrice),
                 nullSafeDouble(minRating)
@@ -53,7 +54,7 @@ public class BookSearchCriteria {
         BookSearchCriteria that = (BookSearchCriteria) o;
         return Objects.equals(authorName, that.authorName)
                 && Objects.equals(genreName, that.genreName)
-                && Objects.equals(publisherName, that.publisherName)
+                && Objects.equals(title, that.title)
                 && Objects.equals(minPrice, that.minPrice)
                 && Objects.equals(maxPrice, that.maxPrice)
                 && Objects.equals(minRating, that.minRating);
@@ -64,7 +65,7 @@ public class BookSearchCriteria {
         return Objects.hash(
                 authorName,
                 genreName,
-                publisherName,
+                title,
                 minPrice,
                 maxPrice,
                 minRating

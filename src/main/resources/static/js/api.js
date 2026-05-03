@@ -73,8 +73,8 @@ export const api = {
       if (filters.genre) {
         qs.set('genre', filters.genre);
       }
-      if (filters.publisher) {
-        qs.set('publisher', filters.publisher);
+      if (filters.title) {
+        qs.set('title', filters.title);
       }
       if (filters.minPrice) {
         qs.set('minPrice', filters.minPrice);

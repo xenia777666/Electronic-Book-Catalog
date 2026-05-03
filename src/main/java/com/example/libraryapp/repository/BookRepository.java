@@ -23,20 +23,19 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
-            + "LEFT JOIN b.publisher p "
             + "WHERE (:authorName IS NULL "
             + "OR CAST(a.name AS string) LIKE CONCAT('%', CAST(:authorName AS string), '%')) "
             + "AND (:genreName IS NULL "
             + "OR CAST(g.name AS string) = CAST(:genreName AS string)) "
-            + "AND (:publisherName IS NULL "
-            + "OR CAST(p.name AS string) = CAST(:publisherName AS string)) "
+            + "AND (:titleFilter IS NULL "
+            + "OR CAST(b.title AS string) LIKE CONCAT('%', CAST(:titleFilter AS string), '%')) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
             + "AND (:minRating IS NULL OR b.averageRating >= :minRating)")
     List<Book> findBooksByComplexCriteria(
             @Param("authorName") String authorName,
             @Param("genreName") String genreName,
-            @Param("publisherName") String publisherName,
+            @Param("titleFilter") String title,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
             @Param("minRating") Double minRating);
@@ -45,20 +44,19 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @Query("SELECT DISTINCT b FROM Book b "
             + "LEFT JOIN b.authors a "
             + "LEFT JOIN b.genres g "
-            + "LEFT JOIN b.publisher p "
             + "WHERE (:authorName IS NULL "
             + "OR CAST(a.name AS string) LIKE CONCAT('%', CAST(:authorName AS string), '%')) "
             + "AND (:genreName IS NULL "
             + "OR CAST(g.name AS string) = CAST(:genreName AS string)) "
-            + "AND (:publisherName IS NULL "
-            + "OR CAST(p.name AS string) = CAST(:publisherName AS string)) "
+            + "AND (:titleFilter IS NULL "
+            + "OR CAST(b.title AS string) LIKE CONCAT('%', CAST(:titleFilter AS string), '%')) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
             + "AND (:minRating IS NULL OR b.averageRating >= :minRating)")
     Page<Book> findBooksByComplexCriteriaWithPagination(
             @Param("authorName") String authorName,
             @Param("genreName") String genreName,
-            @Param("publisherName") String publisherName,
+            @Param("titleFilter") String title,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
             @Param("minRating") Double minRating,
@@ -78,8 +76,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             + "OR a.name ILIKE CONCAT('%', CAST(:authorName AS text), '%')) "
             + "AND (CAST(:genreName AS text) IS NULL OR CAST(:genreName AS text) = '' "
             + "OR g.name ILIKE CAST(:genreName AS text)) "
-            + "AND (CAST(:publisherName AS text) IS NULL OR CAST(:publisherName AS text) = '' "
-            + "OR p.name ILIKE CAST(:publisherName AS text)) "
+            + "AND (CAST(:titleFilter AS text) IS NULL OR CAST(:titleFilter AS text) = '' "
+            + "OR b.title ILIKE CONCAT('%', CAST(:titleFilter AS text), '%')) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
             + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
@@ -87,7 +85,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Object[]> findBooksByComplexCriteriaNative(
             @Param("authorName") String authorName,
             @Param("genreName") String genreName,
-            @Param("publisherName") String publisherName,
+            @Param("titleFilter") String title,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
             @Param("minRating") Double minRating);
@@ -106,8 +104,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             + "OR a.name ILIKE CONCAT('%', CAST(:authorName AS text), '%')) "
             + "AND (CAST(:genreName AS text) IS NULL OR CAST(:genreName AS text) = '' "
             + "OR g.name ILIKE CAST(:genreName AS text)) "
-            + "AND (CAST(:publisherName AS text) IS NULL OR CAST(:publisherName AS text) = '' "
-            + "OR p.name ILIKE CAST(:publisherName AS text)) "
+            + "AND (CAST(:titleFilter AS text) IS NULL OR CAST(:titleFilter AS text) = '' "
+            + "OR b.title ILIKE CONCAT('%', CAST(:titleFilter AS text), '%')) "
             + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
             + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
             + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
@@ -121,8 +119,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
                     + "OR a.name ILIKE CONCAT('%', CAST(:authorName AS text), '%')) "
                     + "AND (CAST(:genreName AS text) IS NULL OR CAST(:genreName AS text) = '' "
                     + "OR g.name ILIKE CAST(:genreName AS text)) "
-                    + "AND (CAST(:publisherName AS text) IS NULL OR CAST(:publisherName AS text) = '' "
-                    + "OR p.name ILIKE CAST(:publisherName AS text)) "
+                    + "AND (CAST(:titleFilter AS text) IS NULL OR CAST(:titleFilter AS text) = '' "
+                    + "OR b.title ILIKE CONCAT('%', CAST(:titleFilter AS text), '%')) "
                     + "AND (:minPrice IS NULL OR b.price >= :minPrice) "
                     + "AND (:maxPrice IS NULL OR b.price <= :maxPrice) "
                     + "AND (:minRating IS NULL OR b.average_rating >= :minRating)",
@@ -130,7 +128,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     Page<Object[]> findBooksByComplexCriteriaNativeWithPagination(
             @Param("authorName") String authorName,
             @Param("genreName") String genreName,
-            @Param("publisherName") String publisherName,
+            @Param("titleFilter") String title,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
             @Param("minRating") Double minRating,

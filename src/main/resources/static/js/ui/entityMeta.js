@@ -1,14 +1,16 @@
-const ICONS = {
+import { escapeFormText } from '../utils/helpers.js';
+
+/** Иконки-контуры в духе разделов меню (книга, типография, автор, жанр, отзыв). */const ICONS = {
   books:
-    '<path d="M4 19.5V5.75A2.75 2.75 0 0 1 6.75 3H18"/><path d="M6 20h12"/><path d="M6 3v17"/><path d="M10 7h6"/><path d="M10 11h6"/>',
+    '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h6"/>',
   publishers:
-    '<path d="M3 7h18"/><path d="M6 7v12"/><path d="M18 7v12"/><path d="M6 19h12"/><rect x="8" y="3" width="8" height="4" rx="1"/>',
+    '<path d="M3 21h18"/><path d="M5 21V8l7-3 7 3v13"/><path d="M9 21v-6h2v6"/><path d="M13 21v-4h2v4"/>',
   authors:
-    '<circle cx="12" cy="7" r="4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
+    '<circle cx="12" cy="8" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>',
   genres:
-    '<path d="M4 20h16"/><path d="M6 16l4-8 4 5 4-9"/><circle cx="6" cy="16" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="14" cy="13" r="1"/><circle cx="18" cy="4" r="1"/>',
+    '<path d="M12 2H2v9.586a1 1 0 0 0 .293.707l9 9a1 1 0 0 0 1.414 0l6.586-6.586a1 1 0 0 0 0-1.414L12 2Z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor" stroke="none"/>',
   reviews:
-    '<path d="M12 20l-3.5-2.1A8 8 0 1 1 20 11"/><path d="M12 20v-8"/>',
+    '<path d="M12 2l2.6 7.4h7.8l-6.3 4.6 2.4 7-6.5-4.7-6.5 4.7 2.4-7L3.6 9.4h7.8L12 2z"/>',
 };
 
 export function entityIcon(entityKey) {
@@ -17,5 +19,5 @@ export function entityIcon(entityKey) {
 }
 
 export function entityLabelWithIcon(entityKey, label) {
-  return `<span class="entity-label-with-icon align-middle">${entityIcon(entityKey)}<span>${label}</span></span>`;
+  return `<span class="entity-label-with-icon align-middle"><span class="text-violet-600">${entityIcon(entityKey)}</span><span>${escapeFormText(label)}</span></span>`;
 }

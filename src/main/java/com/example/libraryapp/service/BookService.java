@@ -38,6 +38,14 @@ public class BookService {
 
     private static final String BOOK_CREATED_SUCCESSFULLY = "Book created successfully";
 
+    private static String nullIfBlank(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+
     private final BookRepository bookRepository;
     private final PublisherRepository publisherRepository;
     private final AuthorRepository authorRepository;
@@ -155,7 +163,7 @@ public class BookService {
         return bookRepository.findBooksByComplexCriteria(
                         criteria.getAuthorName(),
                         criteria.getGenreName(),
-                        criteria.getPublisherName(),
+                        nullIfBlank(criteria.getTitle()),
                         criteria.getMinPrice(),
                         criteria.getMaxPrice(),
                         criteria.getMinRating()).stream()
@@ -171,7 +179,7 @@ public class BookService {
         return bookRepository.findBooksByComplexCriteriaWithPagination(
                 criteria.getAuthorName(),
                 criteria.getGenreName(),
-                criteria.getPublisherName(),
+                nullIfBlank(criteria.getTitle()),
                 criteria.getMinPrice(),
                 criteria.getMaxPrice(),
                 criteria.getMinRating(),
@@ -183,7 +191,7 @@ public class BookService {
         return bookRepository.findBooksByComplexCriteriaNative(
                         criteria.getAuthorName(),
                         criteria.getGenreName(),
-                        criteria.getPublisherName(),
+                        nullIfBlank(criteria.getTitle()),
                         criteria.getMinPrice(),
                         criteria.getMaxPrice(),
                         criteria.getMinRating()).stream()
@@ -200,7 +208,7 @@ public class BookService {
         return bookRepository.findBooksByComplexCriteriaNativeWithPagination(
                         criteria.getAuthorName(),
                         criteria.getGenreName(),
-                        criteria.getPublisherName(),
+                        nullIfBlank(criteria.getTitle()),
                         criteria.getMinPrice(),
                         criteria.getMaxPrice(),
                         criteria.getMinRating(),

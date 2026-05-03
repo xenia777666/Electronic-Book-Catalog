@@ -35,31 +35,31 @@
 
 @layer components {
   .card-base {
-    @apply rounded-xl border border-zinc-200/90 bg-white shadow-sm;
+    @apply rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-900/5;
   }
 
   .input-base {
-    @apply w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25;
+    @apply w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm transition placeholder:text-zinc-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20;
   }
 
   .btn-base {
-    @apply inline-flex items-center justify-center rounded-lg border px-3.5 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-zinc-100;
+    @apply inline-flex items-center justify-center rounded-lg border px-3.5 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-violet-500/40;
   }
 
   .btn-primary {
-    @apply btn-base border-amber-600 bg-amber-500 text-zinc-950 shadow-sm hover:bg-amber-400 focus:ring-amber-500;
+    @apply btn-base border-violet-700 bg-violet-600 text-white shadow-sm hover:bg-violet-500 hover:border-violet-600 active:bg-violet-700;
   }
 
   .btn-secondary {
-    @apply btn-base border-zinc-300 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 focus:ring-zinc-400;
+    @apply btn-base border-zinc-200 bg-white text-zinc-700 shadow-sm hover:border-zinc-300 hover:bg-zinc-50 active:bg-zinc-100;
   }
 
   .btn-danger {
-    @apply btn-base border-rose-200 bg-rose-50 text-rose-800 shadow-sm hover:bg-rose-100 focus:ring-rose-400;
+    @apply btn-base border-rose-200 bg-rose-50 text-rose-800 shadow-sm hover:border-rose-300 hover:bg-rose-100 active:bg-rose-100;
   }
 
   .entity-label-with-icon {
-    @apply inline-flex items-center gap-2;
+    @apply inline-flex items-center gap-2 text-zinc-900;
   }
 
   .entity-inline-icon {

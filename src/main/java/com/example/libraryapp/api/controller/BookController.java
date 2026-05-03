@@ -70,7 +70,7 @@ public class BookController {
     @ApiResponse(responseCode = "200", description = "Книги найдены")
     @GetMapping
     public ResponseEntity<Page<BookResponseDto>> getAllBooks(
-            @PageableDefault(size = 10, sort = "title", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = "publisher.name", direction = Sort.Direction.ASC) Pageable pageable) {
         log.info("GET /api/books - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
         Page<BookResponseDto> books = bookService.getAllBooks(pageable);
         return ResponseEntity.ok(books);
@@ -83,7 +83,7 @@ public class BookController {
     public ResponseEntity<List<BookResponseDto>> searchBooksComplex(
             @RequestParam(required = false) String author,
             @RequestParam(required = false) String genre,
-            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) String title,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Double minRating,
@@ -92,7 +92,7 @@ public class BookController {
         log.info("GET /api/books/search/complex with filters");
 
         BookSearchCriteria criteria = new BookSearchCriteria(
-                author, genre, publisher, minPrice, maxPrice, minRating
+                author, genre, title, minPrice, maxPrice, minRating
         );
 
         // Исправлено: убираем pageable, так как метод searchBooks больше не принимает этот параметр
@@ -107,7 +107,7 @@ public class BookController {
     public ResponseEntity<Page<BookResponseDto>> searchBooksComplexWithPagination(
             @RequestParam(required = false) String author,
             @RequestParam(required = false) String genre,
-            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) String title,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Double minRating,
@@ -117,7 +117,7 @@ public class BookController {
                 pageable.getPageNumber(), pageable.getPageSize());
 
         BookSearchCriteria criteria = new BookSearchCriteria(
-                author, genre, publisher, minPrice, maxPrice, minRating
+                author, genre, title, minPrice, maxPrice, minRating
         );
 
         Page<BookResponseDto> books = bookService.searchBooksWithPagination(criteria, pageable);
@@ -131,7 +131,7 @@ public class BookController {
     public ResponseEntity<List<BookResponseDto>> searchBooksNative(
             @RequestParam(required = false) String author,
             @RequestParam(required = false) String genre,
-            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) String title,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Double minRating) {
@@ -139,7 +139,7 @@ public class BookController {
         log.info("GET /api/books/search/native with filters");
 
         BookSearchCriteria criteria = new BookSearchCriteria(
-                author, genre, publisher, minPrice, maxPrice, minRating
+                author, genre, title, minPrice, maxPrice, minRating
         );
 
         List<BookResponseDto> books = bookService.searchBooksNative(criteria);
@@ -153,7 +153,7 @@ public class BookController {
     public ResponseEntity<Page<BookResponseDto>> searchBooksNativeWithPagination(
             @RequestParam(required = false) String author,
             @RequestParam(required = false) String genre,
-            @RequestParam(required = false) String publisher,
+            @RequestParam(required = false) String title,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Double minRating,
@@ -163,7 +163,7 @@ public class BookController {
                 pageable.getPageNumber(), pageable.getPageSize());
 
         BookSearchCriteria criteria = new BookSearchCriteria(
-                author, genre, publisher, minPrice, maxPrice, minRating
+                author, genre, title, minPrice, maxPrice, minRating
         );
 
         Page<BookResponseDto> books = bookService.searchBooksNativeWithPagination(criteria, pageable);

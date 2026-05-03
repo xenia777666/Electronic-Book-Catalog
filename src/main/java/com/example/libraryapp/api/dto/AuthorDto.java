@@ -1,6 +1,7 @@
 package com.example.libraryapp.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -16,5 +17,6 @@ public class AuthorDto {
 
     private String biography;
 
+    @PastOrPresent(message = "Дата рождения не может быть в будущем")
     private LocalDate birthDate;
 }

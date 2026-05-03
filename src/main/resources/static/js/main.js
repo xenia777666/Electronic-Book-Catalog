@@ -1,17 +1,32 @@
 import { api } from './api.js';
 import { resetUiState, setState, state, subscribe } from './state.js';
-import { formatDate, namesJoin, byId } from './utils/helpers.js';
+import {
+  formatDate,
+  namesJoin,
+  byId,
+  normalizeIsbn,
+  escapeFormText,
+  escapeFormAttr,
+  YEAR_BOOK_MIN,
+  YEAR_BOOK_MAX,
+} from './utils/helpers.js';
 import {
   formDataToObject,
+  mergeEditingRowWithDraft,
   renderDrawer,
   renderEntityForm,
+  renderInlineFieldError,
+  validateBookSearchFilters,
   validateForm,
 } from './ui/form.js';
 import { navItems, renderNav } from './ui/nav.js';
-import { confirmModal, notify, infoModal } from './ui/notifications.js';
+import { confirmModal, notify } from './ui/notifications.js';
 import { applyQuery, paginate, renderTable } from './ui/table.js';
 
-const app = document.getElementById('app');
+function getAppRoot() {
+  return document.getElementById('app');
+}
+
 const SAVE_SUCCESS_MESSAGE = 'Сохранение выполнено';
 const DELETE_SUCCESS_MESSAGE = 'Удаление выполнено';
 const CREATE_ACTION_LABEL = 'Создать запись';
@@ -32,11 +47,13 @@ const entityConfigs = {
         key: 'publisher',
         label: 'Издатель',
         render: (row) => row.publisher?.name ?? '—',
+        sortValue: (row) => row.publisher?.name ?? '',
       },
       {
         key: 'authors',
         label: 'Авторы',
         render: (row) => namesJoin(row.authors),
+        sortValue: (row) => namesJoin(row.authors),
       },
       {
         key: 'genres',
@@ -53,15 +70,33 @@ const entityConfigs = {
       },
     ],
     fields: [
-      { key: 'isbn', label: 'ISBN', required: true },
-      { key: 'title', label: 'Название', required: true },
+      {
+        key: 'isbn',
+        label: 'ISBN',
+        required: true,
+        hint: 'Десяти(тринадцати-)значное целое число.',
+      },
+      {
+        key: 'title',
+        label: 'Название',
+        required: true,
+        hint: 'От 2 до 255 символов.',
+      },
       { key: 'description', label: 'Описание', type: 'textarea' },
-      { key: 'publicationYear', label: 'Год издания', type: 'number' },
+      {
+        key: 'publicationYear',
+        label: 'Год издания',
+        type: 'number',
+        min: YEAR_BOOK_MIN,
+        max: YEAR_BOOK_MAX,
+        hint: `Целое число от ${YEAR_BOOK_MIN} до ${YEAR_BOOK_MAX}`,
+      },
       {
         key: 'price',
         label: 'Цена',
         type: 'number',
         required: true,
+        hint: 'Число больше нуля.',
       },
       {
         key: 'publisherId',
@@ -69,6 +104,7 @@ const entityConfigs = {
         type: 'ref',
         ref: 'publishers',
         required: true,
+        hint: 'Обязательный выбор из списка.',
       },
       {
         key: 'authorIds',
@@ -77,6 +113,7 @@ const entityConfigs = {
         ref: 'authors',
         required: true,
         storageKey: 'authors',
+        hint: 'Отметьте хотя бы одного автора.',
       },
       {
         key: 'genreIds',
@@ -85,10 +122,11 @@ const entityConfigs = {
         ref: 'genres',
         required: false,
         storageKey: 'genres',
+        hint: 'По желанию, можно несколько.',
       },
     ],
     payload: (v) => ({
-      isbn: v.isbn,
+      isbn: normalizeIsbn(v.isbn),
       title: v.title,
       description: v.description || undefined,
       publicationYear: v.publicationYear
@@ -110,10 +148,24 @@ const entityConfigs = {
     ],
     filters: [],
     fields: [
-      { key: 'name', label: 'Название', required: true },
+      {
+        key: 'name',
+        label: 'Название',
+        required: true,
+        hint: 'От 2 до 255 символов.',
+      },
       { key: 'address', label: 'Адрес', type: 'textarea' },
-      { key: 'phone', label: 'Телефон' },
-      { key: 'email', label: 'Email', type: 'email' },
+      {
+        key: 'phone',
+        label: 'Телефон',
+        hint: 'Необязательно. 10-20 символов: цифры, пробелы, +, -, скобки.',
+      },
+      {
+        key: 'email',
+        label: 'Email',
+        type: 'email',
+        hint: 'Необязательно. Формат: имя@домен.зона.ы',
+      },
     ],
     payload: (v) => v,
   },
@@ -131,9 +183,19 @@ const entityConfigs = {
     ],
     filters: [],
     fields: [
-      { key: 'name', label: 'Имя', required: true },
+      {
+        key: 'name',
+        label: 'Имя',
+        required: true,
+        hint: 'От 2 до 255 символов.',
+      },
       { key: 'biography', label: 'Биография', type: 'textarea' },
-      { key: 'birthDate', label: 'Дата рождения', type: 'date' },
+      {
+        key: 'birthDate',
+        label: 'Дата рождения',
+        type: 'date',
+        hint: `Не позже сегодняшнего дня; год не позднее ${YEAR_BOOK_MAX}`,
+      },
     ],
     payload: (v) => v,
   },
@@ -146,7 +208,12 @@ const entityConfigs = {
     ],
     filters: [],
     fields: [
-      { key: 'name', label: 'Название', required: true },
+      {
+        key: 'name',
+        label: 'Название',
+        required: true,
+        hint: 'От 2 до 100 символов.',
+      },
       { key: 'description', label: 'Описание', type: 'textarea' },
     ],
     payload: (v) => v,
@@ -181,20 +248,32 @@ const entityConfigs = {
         type: 'ref',
         ref: 'books',
         required: true,
+        hint: 'Выберите книгу из списка.',
       },
-      { key: 'reviewerName', label: 'Имя читателя' },
+      {
+        key: 'reviewerName',
+        label: 'Имя читателя',
+        hint: 'Необязательно. От 2 до 100 символов.',
+      },
       {
         key: 'rating',
         label: 'Оценка (1–5)',
         type: 'number',
         required: true,
+        hint: 'Целое число от 1 до 5.',
       },
-      { key: 'comment', label: 'Комментарий', type: 'textarea' },
+      {
+        key: 'comment',
+        label: 'Комментарий',
+        type: 'textarea',
+        hint: 'Не длиннее 2000 символов.',
+      },
     ],
     payload: (v) => ({
-      ...v,
       bookId: Number(v.bookId),
       rating: Number(v.rating),
+      reviewerName: (v.reviewerName || '').trim() || undefined,
+      comment: (v.comment || '').trim() || undefined,
     }),
   },
 };
@@ -210,6 +289,7 @@ function openEntityDrawer(editingId = null) {
     s.ui.editingId = editingId;
     s.ui.drawerOpen = true;
     s.ui.formErrors = {};
+    s.ui.formDraft = null;
   });
 }
 
@@ -218,6 +298,7 @@ function closeDrawer() {
     s.ui.drawerOpen = false;
     s.ui.editingId = null;
     s.ui.formErrors = {};
+    s.ui.formDraft = null;
   });
 }
 
@@ -270,7 +351,7 @@ async function loadEntity(entity, force = false) {
       const result = await api.books.list({
         page: meta.page,
         size: meta.size,
-        sort: 'title,asc',
+        sort: 'publisher.name,asc',
       });
       setState((s) => {
         s.data.books = result.items.map(normalizeBookRow);
@@ -331,49 +412,69 @@ function getVisibleRows(entity) {
   };
 }
 
-function escAttr(v) {
-  return String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+function bookFilterInputClass(key, errors) {
+  const err = errors[key];
+  return `input-base mt-1.5 w-full${err ? ' border-rose-400 focus:border-rose-500 focus:ring-rose-200' : ''}`;
 }
 
 function booksServerFilterPanel() {
   const f = state.ui.bookFilter;
+  const err = state.ui.bookFilterErrors || {};
+  const topBlock = err._form
+    ? `<div class="mb-4 rounded-lg border border-rose-200 bg-rose-50/80 px-3 py-2">${renderInlineFieldError(err._form)}</div>`
+    : '';
+
+  const field = (key, label) => `
+    <label class="block text-sm font-medium text-zinc-800">
+      ${escapeFormText(label)}
+      <input type="text" name="${key}" class="${bookFilterInputClass(key, err)}" data-bf="${key}" value="${escapeFormAttr(f[key] ?? '')}" autocomplete="off" />
+      ${renderInlineFieldError(err[key])}
+    </label>`;
+
   return `<div class="card-base p-4 mb-4">
-    <div class="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Книги — поиск API</div>
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <label class="text-sm text-zinc-700">Автор<input class="input-base mt-1" data-bf="author" value="${escAttr(f.author)}" /></label>
-      <label class="text-sm text-zinc-700">Жанр<input class="input-base mt-1" data-bf="genre" value="${escAttr(f.genre)}" /></label>
-      <label class="text-sm text-zinc-700">Издатель<input class="input-base mt-1" data-bf="publisher" value="${escAttr(f.publisher)}" /></label>
-      <label class="text-sm text-zinc-700">Цена от<input class="input-base mt-1" data-bf="minPrice" value="${escAttr(f.minPrice)}" /></label>
-      <label class="text-sm text-zinc-700">Цена до<input class="input-base mt-1" data-bf="maxPrice" value="${escAttr(f.maxPrice)}" /></label>
-      <label class="text-sm text-zinc-700">Рейтинг от<input class="input-base mt-1" data-bf="minRating" value="${escAttr(f.minRating)}" /></label>
-    </div>
-    <div class="mt-4 flex flex-wrap gap-2">
-      <button type="button" class="btn-primary" data-books-search>Найти</button>
-      <button type="button" class="btn-secondary" data-books-search-reset>Сброс</button>
+    <div id="books-filter-panel" class="space-y-4">
+      ${topBlock}
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        ${field('author', 'Автор')}
+        ${field('genre', 'Жанр')}
+        ${field('title', 'Название')}
+        ${field('minPrice', 'Цена от')}
+        ${field('maxPrice', 'Цена до')}
+        ${field('minRating', 'Рейтинг от')}
+      </div>
+      <div class="flex flex-wrap gap-2 border-t border-zinc-200 pt-4">
+        <button type="button" class="btn-primary" data-books-search>Найти</button>
+        <button type="button" class="btn-secondary" data-books-search-reset>Сброс</button>
+      </div>
     </div>
   </div>`;
 }
 
 function shellTemplate(content) {
   return `
-    <div class="flex min-h-screen flex-col bg-zinc-950">
-      <header class="shrink-0 border-b border-zinc-800 bg-zinc-900 px-4 py-3 md:px-6">
-        <div class="mx-auto flex max-w-[1700px] items-baseline gap-3">
-          <h1 class="text-base font-bold tracking-tight text-amber-400 md:text-lg">Каталог</h1>
+    <div class="flex min-h-screen flex-col bg-zinc-100">
+      <header class="shrink-0 border-b border-zinc-800/80 bg-zinc-900 px-4 py-3.5 md:px-6">
+        <div class="mx-auto flex max-w-[1700px] flex-col gap-0.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+          <h1 class="text-lg font-semibold tracking-tight text-white md:text-xl">Каталог</h1>
+          <p class="text-xs font-medium text-zinc-400 sm:text-sm">Электронный каталог книг</p>
         </div>
       </header>
       <main class="mx-auto flex min-h-0 w-full max-w-[1700px] flex-1 flex-col md:flex-row">
-        <aside class="shrink-0 border-zinc-800 bg-zinc-900 px-3 py-3 md:w-56 md:border-r md:py-5">
+        <aside class="shrink-0 border-zinc-200 bg-zinc-900 px-3 py-3 md:w-56 md:border-r md:border-zinc-800 md:py-6">
           <div id="shell-nav"></div>
         </aside>
-        <section class="min-h-0 min-w-0 flex-1 overflow-y-auto bg-zinc-100 p-4 md:p-8">
-          <div id="shell-content">${content}</div>
+        <section class="min-h-0 min-w-0 flex-1 overflow-y-auto bg-gradient-to-b from-zinc-100 to-zinc-200/80 p-4 md:p-8">
+          <div id="shell-content" class="mx-auto max-w-6xl">${content}</div>
         </section>
       </main>
     </div>`;
 }
 
 function ensureShell(content = '') {
+  const app = getAppRoot();
+  if (!app) {
+    return;
+  }
   if (!document.getElementById('shell-content')) {
     app.innerHTML = shellTemplate(content);
     return;
@@ -388,38 +489,17 @@ function ensureShell(content = '') {
   }
 }
 
-function renderEntityDetails(entity, row) {
-  if (!row) {
-    return '<p class="text-zinc-500">Нет данных.</p>';
-  }
-  if (entity === 'books') {
-    const revs = row.reviews?.length
-      ? `<ul class="list-disc pl-5 mt-1">${row.reviews
-          .map(
-            (r) =>
-              `<li>${r.rating}★ ${r.reviewerName || ''}: ${r.comment || '—'}</li>`,
-          )
-          .join('')}</ul>`
-      : '<p class="text-zinc-500">Нет отзывов</p>';
-    return `<div class="space-y-2 text-sm">
-      <p><span class="text-zinc-500">ISBN</span> ${row.isbn}</p>
-      <p><span class="text-zinc-500">Название</span> ${row.title}</p>
-      <p><span class="text-zinc-500">Издатель</span> ${row.publisher?.name ?? '—'}</p>
-      <p><span class="text-zinc-500">Авторы</span> ${namesJoin(row.authors)}</p>
-      <p><span class="text-zinc-500">Жанры</span> ${namesJoin(row.genres)}</p>
-      <div><span class="text-zinc-500">Отзывы</span>${revs}</div>
-    </div>`;
-  }
-  if (entity === 'reviews') {
-    return `<pre class="whitespace-pre-wrap text-xs bg-slate-50 p-3 rounded-lg">${JSON.stringify(row, null, 2)}</pre>`;
-  }
-  return `<pre class="whitespace-pre-wrap text-xs bg-slate-50 p-3 rounded-lg">${JSON.stringify(row, null, 2)}</pre>`;
-}
-
 function render() {
-  const config = entityConfigs[state.route];
-  const { rows, allFiltered, meta } = getVisibleRows(state.route);
-  const editingRow = byId(state.data[state.route], state.ui.editingId);
+  const routeKey =
+    state.route in entityConfigs ? state.route : 'books';
+  const config = entityConfigs[routeKey];
+  const { rows, allFiltered, meta } = getVisibleRows(routeKey);
+  const editingRow = byId(state.data[routeKey], state.ui.editingId);
+  const formRow = mergeEditingRowWithDraft(
+    editingRow,
+    state.ui.formDraft,
+    routeKey,
+  );
   const canEdit = true;
   const canDelete = true;
 
@@ -427,25 +507,25 @@ function render() {
     config,
     state.refs,
     state.data,
-    editingRow,
-    state.route,
+    formRow,
+    routeKey,
     state.ui.formErrors,
   );
 
   const drawerTitle = `${state.ui.editingId ? 'Изменить' : 'Создать'} · ${config.title}`;
 
   const bookExtras =
-    state.route === 'books' ? booksServerFilterPanel() : '';
+    routeKey === 'books' ? booksServerFilterPanel() : '';
 
   const content = `
-    <section class="space-y-4">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 class="text-xl font-semibold tracking-tight text-zinc-900">${config.title}</h2>
+    <section class="space-y-5">
+      <div class="flex flex-col gap-3 border-b border-zinc-200/90 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <h2 class="text-xl font-semibold tracking-tight text-zinc-900 md:text-2xl">${config.title}</h2>
         ${canEdit ? `<button type="button" data-create-entity class="btn-primary shrink-0" aria-label="${CREATE_ACTION_LABEL}">${CREATE_ACTION_LABEL}</button>` : ''}
       </div>
       ${bookExtras}
       ${renderTable({
-        entity: state.route,
+        entity: routeKey,
         config,
         rows,
         refs: state.refs,
@@ -453,7 +533,7 @@ function render() {
         ui: state.ui,
         meta,
         pageableFromApi:
-          state.route === 'books' && !state.ui.booksServerFilter,
+          routeKey === 'books' && !state.ui.booksServerFilter,
         canEdit,
         canDelete,
         loading: false,
@@ -468,35 +548,92 @@ function render() {
   ensureShell(content);
   const navRoot = document.getElementById('shell-nav');
   if (navRoot) {
-    navRoot.innerHTML = renderNav(state.route);
+    navRoot.innerHTML = renderNav(routeKey);
   }
   bindEntityHandlers(config, allFiltered, rows, meta);
   bindBooksFilterHandlers();
 }
 
+function renderWithErrorBoundary() {
+  try {
+    render();
+  } catch (err) {
+    console.error(err);
+    const box = getAppRoot();
+    if (!box) {
+      return;
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error && err.stack ? err.stack : '';
+    box.innerHTML = `<div class="mx-auto max-w-xl p-6 font-sans text-zinc-800">
+      <h1 class="text-lg font-semibold text-rose-700">Не удалось отрисовать интерфейс</h1>
+      <p class="mt-2 text-sm text-zinc-600">Обновите страницу (Ctrl+F5). Откройте консоль (F12) для подробностей.</p>
+      <pre class="mt-4 overflow-auto rounded-lg bg-zinc-100 p-3 text-xs text-rose-900">${escapeFormText(msg)}\n${escapeFormText(stack)}</pre>
+    </div>`;
+  }
+}
+
 function bindBooksFilterHandlers() {
   document.querySelectorAll('[data-bf]').forEach((el) => {
     el.addEventListener('input', (e) => {
-      const key = e.target.getAttribute('data-bf');
+      const input = e.target;
+      const key = input.dataset.bf;
       if (!key) {
         return;
       }
-      state.ui.bookFilter[key] = e.target.value;
+      state.ui.bookFilter[key] = input.value;
+      const errs = state.ui.bookFilterErrors;
+      if (errs && Object.keys(errs).length > 0) {
+        const selStart = input.selectionStart;
+        const selEnd = input.selectionEnd;
+        setState((s) => {
+          const next = { ...s.ui.bookFilterErrors };
+          delete next[key];
+          delete next._form;
+          s.ui.bookFilterErrors = next;
+        });
+        requestAnimationFrame(() => {
+          const again = document.querySelector(`input[data-bf="${key}"]`);
+          if (again) {
+            again.focus();
+            try {
+              if (selStart != null && selEnd != null) {
+                again.setSelectionRange(selStart, selEnd);
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+      }
     });
   });
   document.querySelector('[data-books-search]')?.addEventListener('click', async () => {
+    const f = state.ui.bookFilter;
+    const validation = validateBookSearchFilters(f);
+    if (Object.keys(validation).length) {
+      setState((s) => {
+        s.ui.bookFilterErrors = validation;
+      });
+      return;
+    }
+
+    setState((s) => {
+      s.ui.bookFilterErrors = {};
+    });
+
     try {
-      const f = state.ui.bookFilter;
       const { items } = await api.books.search({
         author: f.author || undefined,
         genre: f.genre || undefined,
-        publisher: f.publisher || undefined,
+        title: f.title || undefined,
         minPrice: f.minPrice || undefined,
         maxPrice: f.maxPrice || undefined,
         minRating: f.minRating || undefined,
       });
       setState((s) => {
         s.ui.booksServerFilter = true;
+        s.ui.bookFilterErrors = {};
         s.data.books = items.map(normalizeBookRow);
         s.meta.books.pageable = false;
         s.meta.books.page = 0;
@@ -508,7 +645,11 @@ function bindBooksFilterHandlers() {
       });
       notify(`Найдено: ${items.length}`, 'success');
     } catch (e) {
-      notify(e.message, 'error');
+      const msg = e?.message != null ? String(e.message) : 'Ошибка поиска';
+      setState((s) => {
+        s.ui.bookFilterErrors = { _form: msg };
+      });
+      notify(msg, 'error');
     }
   });
   document
@@ -516,10 +657,11 @@ function bindBooksFilterHandlers() {
     ?.addEventListener('click', async () => {
       setState((s) => {
         s.ui.booksServerFilter = false;
+        s.ui.bookFilterErrors = {};
         s.ui.bookFilter = {
           author: '',
           genre: '',
-          publisher: '',
+          title: '',
           minPrice: '',
           maxPrice: '',
           minRating: '',
@@ -549,9 +691,14 @@ function bindEntityHandlers(config, allFiltered, displayedRows, meta) {
     if (Object.keys(errors).length) {
       setState((s) => {
         s.ui.formErrors = errors;
+        s.ui.formDraft = raw;
       });
       return;
     }
+
+    setState((s) => {
+      s.ui.formErrors = {};
+    });
 
     const payload = config.payload(raw);
     const route = state.route;
@@ -576,8 +723,12 @@ function bindEntityHandlers(config, allFiltered, displayedRows, meta) {
           const norm =
             route === 'books' ? normalizeBookRow(created) : created;
           s.data[route].unshift(norm);
-          if (!s.meta[route].pageable) {
-            s.meta[route].totalElements += 1;
+          s.meta[route].totalElements += 1;
+          if (s.meta[route].pageable && s.meta[route].size > 0) {
+            s.meta[route].totalPages = Math.max(
+              1,
+              Math.ceil(s.meta[route].totalElements / s.meta[route].size),
+            );
           }
         });
         notify(SAVE_SUCCESS_MESSAGE, 'success');
@@ -587,27 +738,19 @@ function bindEntityHandlers(config, allFiltered, displayedRows, meta) {
         await loadRefs(true);
       }
     } catch (error) {
+      const msg = error?.message != null ? String(error.message) : 'Не удалось сохранить';
       setState((s) => {
         s.data[route] = previousData;
+        s.ui.formDraft = raw;
+        s.ui.formErrors = { _form: msg };
       });
-      notify(error.message, 'error');
+      notify(msg, 'error');
     }
   });
 
   document
     .querySelector('[data-cancel-edit]')
     ?.addEventListener('click', closeDrawer);
-
-  document.querySelectorAll('[data-view-id]').forEach((element) => {
-    element.addEventListener('click', (e) => {
-      const rowId = Number(e.currentTarget.dataset.viewId);
-      const row = byId(state.data[state.route], rowId);
-      infoModal({
-        title: `Просмотр: ${config.title}`,
-        body: renderEntityDetails(state.route, row),
-      });
-    });
-  });
 
   document.querySelectorAll('[data-filter-key]').forEach((element) => {
     element.addEventListener('change', (e) => {
@@ -775,7 +918,7 @@ async function routeChanged() {
   resetUiState();
 }
 
-subscribe(render);
+subscribe(renderWithErrorBoundary);
 window.addEventListener('hashchange', () => routeChanged());
 
 if (!window.location.hash) {
@@ -784,4 +927,4 @@ if (!window.location.hash) {
   routeChanged();
 }
 
-render();
+renderWithErrorBoundary();
