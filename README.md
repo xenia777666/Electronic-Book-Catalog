@@ -7,33 +7,13 @@
 
 ## Задачи
 
-1. Реализовать асинхронную бизнес-операцию через @Async / CompletableFuture, которая:
-- возвращает ID задачи
-- позволяет проверить статус выполнения
-2. Реализовать потокобезопасный счётчик (или аналогичный механизм) с использованием synchronized или Atomic.
-3. Продемонстрировать возможный race condition (ExecutorService 50+ потоков) и его решение.
-4. Провести нагрузочное тестирование JMeter и показать результаты.
+1. Реализовать SPA-клиент (React/Angular/Vue и т.д.).
+2. Клиент должен работать с API, реализованным в лабораторных работах.
+3. Отобразить связи OneToMany и ManyToMany.
+4. Реализовать CRUD операции и фильтрацию.
 
 - [SonarCloud](https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog)
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html#/)
-
-## API endpoints
-
-### ✅ Асинхронная операция
-```http
-POST http://localhost:8080/api/tasks
-```
-
-### Проверка статуса операции по id
-```http
-GET http://localhost:8080/api/tasks/.
-```
-
-### Демонстрация race-condition
-```http
-GET http://localhost:8080/api/race-condition/race-demo?threads=1000&incrementsPerThread=10000
-```
-
 
 ## ER-диаграмма базы данных
 
