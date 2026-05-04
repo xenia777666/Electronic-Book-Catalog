@@ -80,6 +80,7 @@ export function renderTable({
   canEdit = true,
   canDelete = true,
   loading = false,
+  renderLeadingActions,
 }) {
   const hasRows = rows.length > 0;
   const columnCount =
@@ -107,10 +108,15 @@ export function renderTable({
               `<td class="px-4 py-3 align-middle text-sm text-zinc-800">${renderCell(entity, column, row, refs, data)}</td>`,
           )
           .join('');
+        const leading =
+          typeof renderLeadingActions === 'function'
+            ? renderLeadingActions(row)
+            : '';
         return `<tr data-table-row class="border-b border-zinc-100/90 transition-colors hover:bg-violet-50/60 ${index % 2 ? 'bg-zinc-50/70' : 'bg-white'}">
                 ${canDelete ? `<td class="px-4 py-3 align-middle"><input data-select-id="${row.id}" type="checkbox" class="h-4 w-4 rounded border-zinc-300 text-violet-600 focus:ring-violet-500/35" ${isSelected ? 'checked' : ''} /></td>` : ''}
             ${cells}
             ${canEdit || canDelete ? `<td class="px-4 py-3 align-middle"><div class="flex items-center justify-end gap-2 whitespace-nowrap">
+              ${leading}
               ${canEdit ? `<button data-edit-id="${row.id}" class="btn-secondary text-xs">Изменить</button>` : ''}
               ${canDelete ? `<button data-delete-id="${row.id}" class="btn-danger text-xs">Удалить</button>` : ''}
             </div></td>` : ''}

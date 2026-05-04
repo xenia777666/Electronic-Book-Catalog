@@ -261,16 +261,8 @@ export function validateForm(entity, values) {
   return errors;
 }
 
-function fieldHintHtml(field) {
-  if (!field.hint) {
-    return '';
-  }
-  return `<p class="mt-0.5 text-xs leading-relaxed text-zinc-500">${escapeFormText(field.hint)}</p>`;
-}
-
 function renderField(field, value, refs, data, error, row) {
   const baseInputClass = `input-base mt-1.5 w-full ${error ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200' : ''}`;
-  const hintBlock = fieldHintHtml(field);
   const err = fieldErrorHtml(error);
 
   if (field.type === 'multiref') {
@@ -291,7 +283,6 @@ function renderField(field, value, refs, data, error, row) {
     return `
       <fieldset class="space-y-1 rounded-xl border bg-zinc-50/80 p-3 ${error ? 'border-rose-300 ring-1 ring-rose-100' : 'border-zinc-200'}">
         <legend class="px-1 text-sm font-medium text-zinc-800">${escapeFormText(field.label)}${field.required ? ' *' : ''}</legend>
-        ${hintBlock}
         <div class="max-h-40 space-y-0.5 overflow-y-auto">${boxes}</div>
         ${err}
       </fieldset>`;
@@ -301,7 +292,6 @@ function renderField(field, value, refs, data, error, row) {
     return `
       <label class="block text-sm font-medium text-zinc-800">
         ${escapeFormText(field.label)}
-        ${hintBlock}
         <select name="${field.key}" class="${baseInputClass}">
           <option value="">Выберите...</option>
           ${field.options
@@ -319,7 +309,6 @@ function renderField(field, value, refs, data, error, row) {
     return `
       <label class="block text-sm font-medium text-zinc-800">
         ${escapeFormText(field.label)}
-        ${hintBlock}
         <select name="${field.key}" class="${baseInputClass}">
           <option value="">${field.allowEmpty ? 'Не выбрано' : 'Выберите...'}</option>
           ${optionsForRef(field, refs, data, value)}
@@ -332,7 +321,6 @@ function renderField(field, value, refs, data, error, row) {
     return `
       <label class="block text-sm font-medium text-zinc-800">
         ${escapeFormText(field.label)}
-        ${hintBlock}
         <textarea name="${field.key}" rows="3" class="${baseInputClass}">${escapeFormText(value ?? '')}</textarea>
         ${err}
       </label>`;
@@ -345,7 +333,6 @@ function renderField(field, value, refs, data, error, row) {
     return `
       <label class="block text-sm font-medium text-zinc-800">
         ${escapeFormText(field.label)}
-        ${hintBlock}
         <input type="date" name="${field.key}" class="${baseInputClass}" min="${minD}" max="${maxD}" value="${valAttr}" />
         ${err}
       </label>`;
@@ -364,7 +351,6 @@ function renderField(field, value, refs, data, error, row) {
   return `
     <label class="block text-sm font-medium text-zinc-800">
       ${escapeFormText(field.label)}
-      ${hintBlock}
       <input type="${escapeFormAttr(inputType)}" name="${field.key}" value="${valAttr}" class="${baseInputClass}"${numMin}${numMax} />
       ${err}
     </label>`;

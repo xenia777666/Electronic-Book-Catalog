@@ -74,13 +74,11 @@ const entityConfigs = {
         key: 'isbn',
         label: 'ISBN',
         required: true,
-        hint: 'Десяти(тринадцати-)значное целое число.',
       },
       {
         key: 'title',
         label: 'Название',
         required: true,
-        hint: 'От 2 до 255 символов.',
       },
       { key: 'description', label: 'Описание', type: 'textarea' },
       {
@@ -89,14 +87,12 @@ const entityConfigs = {
         type: 'number',
         min: YEAR_BOOK_MIN,
         max: YEAR_BOOK_MAX,
-        hint: `Целое число от ${YEAR_BOOK_MIN} до ${YEAR_BOOK_MAX}`,
       },
       {
         key: 'price',
         label: 'Цена',
         type: 'number',
         required: true,
-        hint: 'Число больше нуля.',
       },
       {
         key: 'publisherId',
@@ -104,7 +100,6 @@ const entityConfigs = {
         type: 'ref',
         ref: 'publishers',
         required: true,
-        hint: 'Обязательный выбор из списка.',
       },
       {
         key: 'authorIds',
@@ -113,7 +108,6 @@ const entityConfigs = {
         ref: 'authors',
         required: true,
         storageKey: 'authors',
-        hint: 'Отметьте хотя бы одного автора.',
       },
       {
         key: 'genreIds',
@@ -122,7 +116,6 @@ const entityConfigs = {
         ref: 'genres',
         required: false,
         storageKey: 'genres',
-        hint: 'По желанию, можно несколько.',
       },
     ],
     payload: (v) => ({
@@ -152,19 +145,16 @@ const entityConfigs = {
         key: 'name',
         label: 'Название',
         required: true,
-        hint: 'От 2 до 255 символов.',
       },
       { key: 'address', label: 'Адрес', type: 'textarea' },
       {
         key: 'phone',
         label: 'Телефон',
-        hint: 'Необязательно. 10-20 символов: цифры, пробелы, +, -, скобки.',
       },
       {
         key: 'email',
         label: 'Email',
         type: 'email',
-        hint: 'Необязательно. Формат: имя@домен.зона.ы',
       },
     ],
     payload: (v) => v,
@@ -187,14 +177,12 @@ const entityConfigs = {
         key: 'name',
         label: 'Имя',
         required: true,
-        hint: 'От 2 до 255 символов.',
       },
       { key: 'biography', label: 'Биография', type: 'textarea' },
       {
         key: 'birthDate',
         label: 'Дата рождения',
         type: 'date',
-        hint: `Не позже сегодняшнего дня; год не позднее ${YEAR_BOOK_MAX}`,
       },
     ],
     payload: (v) => v,
@@ -212,7 +200,6 @@ const entityConfigs = {
         key: 'name',
         label: 'Название',
         required: true,
-        hint: 'От 2 до 100 символов.',
       },
       { key: 'description', label: 'Описание', type: 'textarea' },
     ],
@@ -248,25 +235,21 @@ const entityConfigs = {
         type: 'ref',
         ref: 'books',
         required: true,
-        hint: 'Выберите книгу из списка.',
       },
       {
         key: 'reviewerName',
         label: 'Имя читателя',
-        hint: 'Необязательно. От 2 до 100 символов.',
       },
       {
         key: 'rating',
         label: 'Оценка (1–5)',
         type: 'number',
         required: true,
-        hint: 'Целое число от 1 до 5.',
       },
       {
         key: 'comment',
         label: 'Комментарий',
         type: 'textarea',
-        hint: 'Не длиннее 2000 символов.',
       },
     ],
     payload: (v) => ({
@@ -307,6 +290,109 @@ function normalizeBookRow(b) {
     ...b,
     publisherId: b.publisher?.id ?? null,
   };
+}
+
+function reviewsToArray(reviews) {
+  if (reviews == null) {
+    return [];
+  }
+  if (Array.isArray(reviews)) {
+    return reviews;
+  }
+  return Object.values(reviews);
+}
+
+function renderBookPreviewBody(book) {
+  const descRaw = book?.description;
+  const hasDesc =
+    descRaw != null && String(descRaw).replace(/\s/g, '').length > 0;
+  const descBlock = hasDesc
+    ? `<div class="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">${escapeFormText(descRaw)}</div>`
+    : `<p class="text-sm italic text-zinc-500">Описание ещё не добавлено.</p>`;
+
+  const list = reviewsToArray(book?.reviews).filter(Boolean);
+  let reviewsBlock;
+  if (list.length === 0) {
+    reviewsBlock = `<p class="text-sm italic text-zinc-500">Отзывы ещё не добавлены.</p>`;
+  } else {
+    reviewsBlock = `<ul class="space-y-3">
+      ${list
+        .map(
+          (r) => `<li class="rounded-lg border border-zinc-200/90 bg-zinc-50/80 px-3 py-2.5">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+              <span class="font-medium text-zinc-900">${escapeFormText(r.reviewerName ?? 'Читатель')}</span>
+              <span class="tabular-nums text-violet-700">★ ${escapeFormText(String(r.rating ?? '—'))}</span>
+            </div>
+            ${
+              r.comment != null && String(r.comment).trim()
+                ? `<p class="mt-1.5 text-sm leading-relaxed text-zinc-700 whitespace-pre-wrap">${escapeFormText(r.comment)}</p>`
+                : ''
+            }
+          </li>`,
+        )
+        .join('')}
+    </ul>`;
+  }
+
+  return `
+    <div class="space-y-6">
+      <section>
+        <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Описание</h4>
+        ${descBlock}
+      </section>
+      <section>
+        <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Отзывы</h4>
+        ${reviewsBlock}
+      </section>
+    </div>`;
+}
+
+async function openBookPreview(bookId) {
+  const overlay = document.createElement('div');
+  overlay.className =
+    'fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/45 p-4 backdrop-blur-[2px]';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'book-preview-title');
+
+  overlay.innerHTML = `
+    <div class="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-xl shadow-zinc-900/15">
+      <div class="flex shrink-0 items-start justify-between gap-4 bg-gradient-to-r from-violet-600 to-violet-700 px-5 py-4 text-white shadow-sm">
+        <h3 id="book-preview-title" class="min-w-0 flex-1 text-lg font-semibold leading-snug tracking-tight text-white">Загрузка…</h3>
+        <button type="button" data-book-preview-close class="shrink-0 rounded-lg border border-white/35 bg-white/15 px-4 py-2.5 text-sm font-medium leading-normal text-white shadow-sm transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-violet-700">Закрыть</button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-y-auto border-t border-violet-200/25 px-5 py-5" data-book-preview-body>
+        <p class="text-sm text-zinc-500">Загрузка…</p>
+      </div>
+    </div>`;
+
+  const close = () => overlay.remove();
+  overlay.querySelector('[data-book-preview-close]')?.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      close();
+    }
+  });
+
+  document.body.appendChild(overlay);
+
+  const titleEl = overlay.querySelector('#book-preview-title');
+  const bodyEl = overlay.querySelector('[data-book-preview-body]');
+
+  try {
+    const book = await api.books.get(bookId);
+    if (titleEl) {
+      titleEl.textContent = book?.title ?? 'Книга';
+    }
+    if (bodyEl) {
+      bodyEl.innerHTML = renderBookPreviewBody(book);
+    }
+  } catch (error) {
+    const msg =
+      error?.message != null ? String(error.message) : 'Не удалось загрузить книгу';
+    notify(msg, 'error');
+    close();
+  }
 }
 
 async function loadRefs(force = false) {
@@ -452,19 +538,19 @@ function booksServerFilterPanel() {
 
 function shellTemplate(content) {
   return `
-    <div class="flex min-h-screen flex-col bg-zinc-100">
-      <header class="shrink-0 border-b border-zinc-800/80 bg-zinc-900 px-4 py-3.5 md:px-6">
-        <div class="mx-auto flex max-w-[1700px] flex-col gap-0.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+    <div class="flex min-h-[100dvh] min-h-screen flex-col overflow-x-hidden bg-zinc-100">
+      <header class="shrink-0 w-full border-b border-zinc-800/80 bg-zinc-900 px-4 py-3.5 md:px-6">
+        <div class="flex w-full flex-col gap-0.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <h1 class="text-lg font-semibold tracking-tight text-white md:text-xl">Каталог</h1>
           <p class="text-xs font-medium text-zinc-400 sm:text-sm">Электронный каталог книг</p>
         </div>
       </header>
-      <main class="mx-auto flex min-h-0 w-full max-w-[1700px] flex-1 flex-col md:flex-row">
-        <aside class="shrink-0 border-zinc-200 bg-zinc-900 px-3 py-3 md:w-56 md:border-r md:border-zinc-800 md:py-6">
+      <main class="flex min-h-0 w-full min-w-0 flex-1 flex-col md:flex-row">
+        <aside class="shrink-0 w-full border-b border-zinc-800 bg-zinc-900 px-3 py-3 md:w-56 md:shrink-0 md:border-b-0 md:border-r md:border-zinc-800 md:py-6">
           <div id="shell-nav"></div>
         </aside>
-        <section class="min-h-0 min-w-0 flex-1 overflow-y-auto bg-gradient-to-b from-zinc-100 to-zinc-200/80 p-4 md:p-8">
-          <div id="shell-content" class="mx-auto max-w-6xl">${content}</div>
+        <section class="min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-zinc-100 to-zinc-200/80 px-4 py-4 md:px-6 md:py-8">
+          <div id="shell-content" class="w-full min-w-0">${content}</div>
         </section>
       </main>
     </div>`;
@@ -537,6 +623,11 @@ function render() {
         canEdit,
         canDelete,
         loading: false,
+        renderLeadingActions:
+          routeKey === 'books'
+            ? (row) =>
+                `<button type="button" data-book-preview="${row.id}" class="btn-book-preview" aria-label="Просмотр: ${escapeFormAttr(String(row.title ?? 'книга'))}">Просмотр</button>`
+            : undefined,
       })}
       ${renderDrawer({
         title: drawerTitle,
@@ -779,6 +870,17 @@ function bindEntityHandlers(config, allFiltered, displayedRows, meta) {
           dir: same && s.ui.sort.dir === 'asc' ? 'desc' : 'asc',
         };
       });
+    });
+  });
+
+  document.querySelectorAll('[data-book-preview]').forEach((element) => {
+    element.addEventListener('click', (e) => {
+      const raw = e.currentTarget.dataset.bookPreview;
+      const id = Number(raw);
+      if (!Number.isFinite(id)) {
+        return;
+      }
+      openBookPreview(id);
     });
   });
 

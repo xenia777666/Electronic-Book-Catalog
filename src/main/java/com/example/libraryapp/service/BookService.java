@@ -78,7 +78,7 @@ public class BookService {
 
     public BookResponseDto getBookById(Long id) {
         log.debug("Getting book by id: {}", id);
-        Book book = bookRepository.findById(id)
+        Book book = bookRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new EntityNotFoundException("Book not found with id: " + id));
         return bookMapper.toDto(book);
     }
