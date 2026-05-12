@@ -48,18 +48,16 @@ docker compose up --build
 
 ## CI/CD (GitHub Actions)
 
-### CI: `.github/workflows/build.yml`
+### `.github/workflows/ci-cd.yml`
 
-- сборка Maven
-- тесты
-- сборка Docker-образа
-- SonarCloud (если задан `SONAR_TOKEN`)
+Последовательные джобы: **build** → **test** → **deploy** → **healthcheck**.
 
-### CD: `.github/workflows/deploy-render.yml`
+- **build**: Maven package без тестов, сборка Docker-образа
+- **test**: `mvn verify`, SonarCloud (если задан `SONAR_TOKEN`)
+- **deploy**: POST на Render Deploy Hook (только `push` в `main`/`master` или ручной `workflow_dispatch`)
+- **healthcheck**: пауза и проверка `actuator/health` по URL из секрета
 
-- запуск deploy hook в Render
-- ожидание старта
-- healthcheck после развертывания
+На **pull request** выполняются только **build** и **test**.
 
 Нужно добавить GitHub Secrets:
 
