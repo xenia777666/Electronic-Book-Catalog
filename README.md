@@ -15,6 +15,75 @@
 - [SonarCloud](https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog)
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html#/)
 
+## Переменные окружения
+
+Приложение поддерживает конфигурацию через env-переменные:
+
+- `DB_URL` (по умолчанию `jdbc:postgresql://localhost:5432/library_db`)
+- `DB_USERNAME` (по умолчанию `postgres`)
+- `DB_PASSWORD` (по умолчанию `postgres`)
+- `PORT` (по умолчанию `8080`)
+
+Для локальной разработки можно использовать `.env.example` как шаблон:
+
+```bash
+cp .env.example .env
+```
+
+## Docker
+
+### Сборка образа
+
+```bash
+docker build -t library-app:local .
+```
+
+### Запуск приложения + PostgreSQL через Docker Compose
+
+```bash
+docker compose up --build
+```
+
+После запуска API доступно на `http://localhost:8080`, healthcheck:
+
+- `http://localhost:8080/actuator/health`
+
+## Бесплатный PaaS (Render)
+
+В репозитории добавлен `render.yaml` (Blueprint), который поднимает:
+
+- web-сервис из `Dockerfile`
+- PostgreSQL базу данных
+- переменные окружения из managed database
+- health check endpoint `/actuator/health`
+
+Шаги:
+
+1. Подключить репозиторий в Render.
+2. Создать сервис по Blueprint (`render.yaml`).
+3. Проверить публичный URL и сохранить health endpoint (например, `https://<app>.onrender.com/actuator/health`).
+
+## CI/CD (GitHub Actions)
+
+### CI: `.github/workflows/build.yml`
+
+- сборка Maven
+- тесты
+- сборка Docker-образа
+- SonarCloud (если задан `SONAR_TOKEN`)
+
+### CD: `.github/workflows/deploy-render.yml`
+
+- запуск deploy hook в Render
+- ожидание старта
+- healthcheck после развертывания
+
+Нужно добавить GitHub Secrets:
+
+- `RENDER_DEPLOY_HOOK_URL` — Deploy Hook URL из Render
+- `RENDER_HEALTHCHECK_URL` — полный URL health endpoint
+- `SONAR_TOKEN` — опционально для SonarCloud шага
+
 ## ER-диаграмма базы данных
 
 ```mermaid

@@ -1,0 +1,27 @@
+databases:
+  - name: library-app-db
+    databaseName: library_db
+    user: library_user
+    plan: free
+
+services:
+  - type: web
+    name: library-app
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_URL
+        fromDatabase:
+          name: library-app-db
+          property: connectionString
+      - key: DB_USERNAME
+        fromDatabase:
+          name: library-app-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: library-app-db
+          property: password

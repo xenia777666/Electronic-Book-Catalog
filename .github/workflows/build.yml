@@ -1,4 +1,4 @@
-name: Build and Analyze
+name: CI Build and Test
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,21 +20,19 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: maven
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+      - name: Run tests
+        run: mvn -B clean verify -Dtest="!LibraryAppApplicationTests"
 
-      - name: Run tests with coverage
-        run: mvn clean verify -Dtest="!LibraryAppApplicationTests"
+      - name: Build jar artifact
+        run: mvn -B -DskipTests package
 
-      - name: Generate JaCoCo report
-        run: mvn jacoco:report
+      - name: Build Docker image
+        run: docker build -t library-app:${{ github.sha }} .
 
       - name: SonarCloud Scan
+        if: ${{ secrets.SONAR_TOKEN != '' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn sonar:sonar -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+        run: mvn -B sonar:sonar -Dsonar.token=${{ secrets.SONAR_TOKEN }}
