@@ -15,6 +15,9 @@ WORKDIR /app
 
 COPY --from=builder /app/target/library-app-1.0.0.jar app.jar
 
+COPY docker-entrypoint.sh docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh && sed -i 's/\r$//' docker-entrypoint.sh 2>/dev/null || true
+
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

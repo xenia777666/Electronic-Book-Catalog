@@ -6,7 +6,6 @@ import java.util.Map;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 
@@ -14,8 +13,13 @@ import org.springframework.core.env.MapPropertySource;
  * Render injects {@code DB_URL} as a libpq-style URI ({@code postgresql://...}).
  * Spring JDBC expects {@code jdbc:postgresql://...}.
  */
-@Order(Ordered.HIGHEST_PRECEDENCE)
-public class RenderDatabaseEnvironmentPostProcessor implements EnvironmentPostProcessor {
+public class RenderDatabaseEnvironmentPostProcessor implements EnvironmentPostProcessor, Ordered {
+
+    @Override
+    public int getOrder() {
+        return Ordered.HIGHEST_PRECEDENCE;
+    }
+
 
     private static final String SOURCE_NAME = "renderJdbcDatasourceUrl";
 

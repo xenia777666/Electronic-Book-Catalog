@@ -198,7 +198,7 @@ class BookServiceTest {
 
     @Test
     void getBookById_Success() {
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.findByIdWithDetails(1L)).thenReturn(Optional.of(book));
         when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
 
         BookResponseDto result = bookService.getBookById(1L);
@@ -209,7 +209,7 @@ class BookServiceTest {
 
     @Test
     void getBookById_NotFound_ThrowsEntityNotFound() {
-        when(bookRepository.findById(999L)).thenReturn(Optional.empty());
+        when(bookRepository.findByIdWithDetails(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> bookService.getBookById(999L))
                 .isInstanceOf(EntityNotFoundException.class)
