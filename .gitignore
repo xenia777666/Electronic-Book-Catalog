@@ -1,7 +1,6 @@
 # Build / IDE
 HELP.md
-mvnw
-mvnw.cmd
+
 # Игнорируем служебное в .mvn, но оставляем каталог wrapper (файлы — исключения после *.jar)
 .mvn/*
 !.mvn/wrapper/
