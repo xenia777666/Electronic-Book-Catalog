@@ -27,3 +27,5 @@ services:
           property: password
       - key: DB_SSL_MODE
         value: require
+      - key: APP_SEED_ENABLED
+        value: "true"

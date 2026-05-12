@@ -7,13 +7,19 @@
 
 ## Задачи
 
-1. Реализовать SPA-клиент (React/Angular/Vue и т.д.).
-2. Клиент должен работать с API, реализованным в лабораторных работах.
-3. Отобразить связи OneToMany и ManyToMany.
-4. Реализовать CRUD операции и фильтрацию.
+1. Подготовить Dockerfile для приложения.
+2. Подготовить Docker Compose (приложение + БД).
+3. Использовать переменные окружения.
+4. Разместить приложение на бесплатном хостинге (PaaS).
+5. Настроить CI/CD в GitHub:
+- сборка
+- тесты
+- развертывание
+- healthcheck
 
 - [SonarCloud](https://sonarcloud.io/project/overview?id=xenia777666_Electronic-Book-Catalog)
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html#/)
+- [Render](https://dashboard.render.com/blueprint/exs-d81kbn0g4nts7385v1l0)
 
 ## Переменные окружения
 

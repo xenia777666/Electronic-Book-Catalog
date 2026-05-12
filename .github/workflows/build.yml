@@ -23,7 +23,7 @@ jobs:
           cache: maven
 
       - name: Run tests
-        run: mvn -B clean verify -Dtest="!LibraryAppApplicationTests"
+        run: mvn -B clean verify
 
       - name: Build jar artifact
         run: mvn -B -DskipTests package
