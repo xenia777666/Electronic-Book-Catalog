@@ -25,3 +25,5 @@ services:
         fromDatabase:
           name: library-app-db
           property: password
+      - key: DB_SSL_MODE
+        value: require
