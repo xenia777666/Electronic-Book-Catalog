@@ -21,29 +21,6 @@
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html#/)
 - [Render](https://dashboard.render.com/blueprint/exs-d81kbn0g4nts7385v1l0)
 
-## Переменные окружения
-
-Приложение поддерживает конфигурацию через env-переменные:
-
-- `DB_URL` (по умолчанию `jdbc:postgresql://localhost:5432/library_db`)
-- `DB_USERNAME` (по умолчанию `postgres`)
-- `DB_PASSWORD` (по умолчанию `postgres`)
-- `PORT` (по умолчанию `8080`)
-
-Для локальной разработки можно использовать `.env.example` как шаблон:
-
-```bash
-cp .env.example .env
-```
-
-## Docker
-
-### Сборка образа
-
-```bash
-docker build -t library-app:local .
-```
-
 ### Запуск приложения + PostgreSQL через Docker Compose
 
 ```bash

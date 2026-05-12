@@ -38,6 +38,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -343,6 +345,30 @@ class BookServiceTest {
     }
 
     @Test
+    void searchBooks_titleBlankAfterTrim_passesNullTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria("Test", null, "   ", null, null, null);
+        when(bookRepository.findBooksByComplexCriteria(eq("Test"), isNull(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooks(criteria);
+
+        verify(bookRepository).findBooksByComplexCriteria(eq("Test"), isNull(), isNull(), isNull(), isNull(), isNull());
+    }
+
+    @Test
+    void searchBooks_titleTrimmed_passesTrimmedTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria("Test", null, "  abc  ", null, null, null);
+        when(bookRepository.findBooksByComplexCriteria(eq("Test"), isNull(), eq("abc"), isNull(), isNull(), isNull()))
+                .thenReturn(List.of(book));
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooks(criteria);
+
+        verify(bookRepository).findBooksByComplexCriteria(eq("Test"), isNull(), eq("abc"), isNull(), isNull(), isNull());
+    }
+
+    @Test
     void searchBooksWithPagination_Success() {
         BookSearchCriteria criteria = new BookSearchCriteria("Test", null, null, null, null, null);
         Page<Book> bookPage = new PageImpl<>(List.of(book), pageable, 1);
@@ -357,6 +383,38 @@ class BookServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    void searchBooksWithPagination_titleBlankAfterTrim_passesNullTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria("Test", null, "\t  ", null, null, null);
+        Page<Book> bookPage = new PageImpl<>(List.of(book), pageable, 1);
+
+        when(bookRepository.findBooksByComplexCriteriaWithPagination(
+                eq("Test"), isNull(), isNull(), isNull(), isNull(), isNull(), eq(pageable)))
+                .thenReturn(bookPage);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooksWithPagination(criteria, pageable);
+
+        verify(bookRepository).findBooksByComplexCriteriaWithPagination(
+                eq("Test"), isNull(), isNull(), isNull(), isNull(), isNull(), eq(pageable));
+    }
+
+    @Test
+    void searchBooksWithPagination_titleTrimmed_passesTrimmedTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria(null, "G", " x ", null, null, null);
+        Page<Book> bookPage = new PageImpl<>(List.of(book), pageable, 1);
+
+        when(bookRepository.findBooksByComplexCriteriaWithPagination(
+                isNull(), eq("G"), eq("x"), isNull(), isNull(), isNull(), eq(pageable)))
+                .thenReturn(bookPage);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooksWithPagination(criteria, pageable);
+
+        verify(bookRepository).findBooksByComplexCriteriaWithPagination(
+                isNull(), eq("G"), eq("x"), isNull(), isNull(), isNull(), eq(pageable));
     }
 
     @Test
@@ -377,6 +435,40 @@ class BookServiceTest {
     }
 
     @Test
+    void searchBooksNative_titleBlankAfterTrim_passesNullTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria("A", null, " ", null, null, null);
+        Object[] row = new Object[13];
+
+        when(bookRepository.findBooksByComplexCriteriaNative(
+                eq("A"), isNull(), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(Collections.singletonList(row));
+        when(bookMapper.mapToBook(any(Object[].class))).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooksNative(criteria);
+
+        verify(bookRepository).findBooksByComplexCriteriaNative(
+                eq("A"), isNull(), isNull(), isNull(), isNull(), isNull());
+    }
+
+    @Test
+    void searchBooksNative_titleTrimmed_passesTrimmedTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria(null, null, "\n hi \n", null, null, null);
+        Object[] row = new Object[13];
+
+        when(bookRepository.findBooksByComplexCriteriaNative(
+                isNull(), isNull(), eq("hi"), isNull(), isNull(), isNull()))
+                .thenReturn(Collections.singletonList(row));
+        when(bookMapper.mapToBook(any(Object[].class))).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooksNative(criteria);
+
+        verify(bookRepository).findBooksByComplexCriteriaNative(
+                isNull(), isNull(), eq("hi"), isNull(), isNull(), isNull());
+    }
+
+    @Test
     void searchBooksNativeWithPagination_Success() {
         BookSearchCriteria criteria = new BookSearchCriteria("Test", null, null, null, null, null);
         Object[] row = new Object[13];
@@ -394,6 +486,42 @@ class BookServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    void searchBooksNativeWithPagination_titleBlankAfterTrim_passesNullTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria("Nat", null, "", null, null, null);
+        Object[] row = new Object[13];
+        Page<Object[]> page = new PageImpl<>(Collections.singletonList(row), pageable, 1);
+
+        when(bookRepository.findBooksByComplexCriteriaNativeWithPagination(
+                eq("Nat"), isNull(), isNull(), isNull(), isNull(), isNull(), eq(pageable)))
+                .thenReturn(page);
+        when(bookMapper.mapToBook(any(Object[].class))).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooksNativeWithPagination(criteria, pageable);
+
+        verify(bookRepository).findBooksByComplexCriteriaNativeWithPagination(
+                eq("Nat"), isNull(), isNull(), isNull(), isNull(), isNull(), eq(pageable));
+    }
+
+    @Test
+    void searchBooksNativeWithPagination_titleTrimmed_passesTrimmedTitleToRepository() {
+        BookSearchCriteria criteria = new BookSearchCriteria(null, null, "  t  ", null, null, null);
+        Object[] row = new Object[13];
+        Page<Object[]> page = new PageImpl<>(Collections.singletonList(row), pageable, 1);
+
+        when(bookRepository.findBooksByComplexCriteriaNativeWithPagination(
+                isNull(), isNull(), eq("t"), isNull(), isNull(), isNull(), eq(pageable)))
+                .thenReturn(page);
+        when(bookMapper.mapToBook(any(Object[].class))).thenReturn(book);
+        when(bookMapper.toDto(book)).thenReturn(bookResponseDto);
+
+        bookService.searchBooksNativeWithPagination(criteria, pageable);
+
+        verify(bookRepository).findBooksByComplexCriteriaNativeWithPagination(
+                isNull(), isNull(), eq("t"), isNull(), isNull(), isNull(), eq(pageable));
     }
 
     @Test
