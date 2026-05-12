@@ -21,52 +21,7 @@
 - [Swagger UI](http://localhost:8080/swagger-ui/index.html#/)
 - [Render](https://dashboard.render.com/blueprint/exs-d81kbn0g4nts7385v1l0)
 
-### Запуск приложения + PostgreSQL через Docker Compose
-
-```bash
-docker compose up --build
-```
-
-После запуска API доступно на `http://localhost:8080`, healthcheck:
-
-- `http://localhost:8080/actuator/health`
-
-## Бесплатный PaaS (Render)
-
-В репозитории добавлен `render.yaml` (Blueprint), который поднимает:
-
-- web-сервис из `Dockerfile`
-- PostgreSQL базу данных
-- переменные окружения из managed database
-- health check endpoint `/actuator/health`
-
-Шаги:
-
-1. Подключить репозиторий в Render.
-2. Создать сервис по Blueprint (`render.yaml`).
-3. Проверить публичный URL и сохранить health endpoint (например, `https://<app>.onrender.com/actuator/health`).
-
-## CI/CD (GitHub Actions)
-
-### `.github/workflows/ci-cd.yml`
-
-Последовательные джобы: **build** → **test** → **deploy** → **healthcheck**.
-
-- **build**: Maven package без тестов, сборка Docker-образа
-- **test**: `mvn verify`, SonarCloud (если задан `SONAR_TOKEN`)
-- **deploy**: POST на Render Deploy Hook (только `push` в `main`/`master` или ручной `workflow_dispatch`)
-- **healthcheck**: пауза и проверка `actuator/health` по URL из секрета
-
-На **pull request** выполняются только **build** и **test**.
-
-Нужно добавить GitHub Secrets:
-
-- `RENDER_DEPLOY_HOOK_URL` — Deploy Hook URL из Render
-- `RENDER_HEALTHCHECK_URL` — полный URL health endpoint
-- `SONAR_TOKEN` — опционально для SonarCloud шага
-
 ## ER-диаграмма базы данных
-
 ```mermaid
 erDiagram
     PUBLISHER ||--o{ BOOK : publishes
